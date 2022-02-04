@@ -1,5 +1,6 @@
-package org.coonrapidsfree.obs;
+package obsautomation;
 
+import org.coonrapidsfree.obs.*;
 import java.awt.AWTException;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -39,8 +40,9 @@ import net.twasi.obsremotejava.requests.SetCurrentScene.SetCurrentSceneResponse;
 import net.twasi.obsremotejava.requests.SetMute.SetMuteResponse;
 import net.twasi.obsremotejava.requests.SetSceneItemProperties.SetSceneItemPropertiesResponse;
 import net.twasi.obsremotejava.requests.SetTransitionDuration.SetTransitionDurationResponse;
+import org.coonrapidsfree.obs.SceneBox;
 
-public class ObsAutomationUtility extends javax.swing.JFrame {
+public class ObsScenePanelGenerator extends javax.swing.JFrame {
 
     private static Robot robot = null;
 
@@ -80,7 +82,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
     /**
      * Creates new form ObsAutomationOne
      */
-    public ObsAutomationUtility() {
+    public ObsScenePanelGenerator() {
         initComponents();
 
         if (controller.isFailed()) { // Awaits response from OBS
@@ -212,7 +214,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
                         try {
                             Thread.sleep(500);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+                            Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(Level.SEVERE, null, ex);
                         }
                         System.out.println(sceneName);
                         controller.setCurrentScene(sceneName, new Callback<SetCurrentSceneResponse>() {
@@ -497,12 +499,12 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
         }
 
         String origSceneName = currentSceneName;
-        for (String key : ObsAutomationUtility.sceneList) {
+        for (String key : ObsScenePanelGenerator.sceneList) {
             controller.changeSceneWithTransition(key, "Cut", callback);
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException ex) {
-                Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(Level.SEVERE, null, ex);
             }
 
             BufferedImage tempProgram = robot.createScreenCapture(new Rectangle(programX, programY, programW, programH));
@@ -851,7 +853,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
                     try {
                         Thread.sleep(5000);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(Level.SEVERE, null, ex);
                     }
 
                     for (String key : sceneMap.keySet()) {
@@ -877,7 +879,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
                             try {
                                 Thread.sleep(5000);
                             } catch (InterruptedException ex) {
-                                Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         } else if (containsSD) {
                             transition(scene.getName(), "Cut", 0);
@@ -885,7 +887,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
                             try {
                                 Thread.sleep(5000);
                             } catch (InterruptedException ex) {
-                                Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+                                Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(Level.SEVERE, null, ex);
                             }
                         }
                         BufferedImage tempImg = robot.createScreenCapture(new Rectangle(new Point(483, 32), new Dimension(430, 240)));
@@ -904,7 +906,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
             });
             t.start();
         } catch (Exception ex) {
-            Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_jButton1ActionPerformed
 
@@ -1036,21 +1038,23 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
                 }
             }
         } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(ObsAutomationUtility.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(ObsAutomationUtility.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(ObsAutomationUtility.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         } catch (javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(ObsAutomationUtility.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            java.util.logging.Logger.getLogger(ObsScenePanelGenerator.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
+        //</editor-fold>
+        //</editor-fold>
         //</editor-fold>
         //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new ObsAutomationUtility().setVisible(true);
+                new ObsScenePanelGenerator().setVisible(true);
             }
         });
     }

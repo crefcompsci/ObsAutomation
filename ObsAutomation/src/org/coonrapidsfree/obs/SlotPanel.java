@@ -27,7 +27,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import org.coonrapidsfree.obs.two.ObsAutomationTwo;
 
 public abstract class SlotPanel extends javax.swing.JPanel {
 
@@ -130,8 +129,8 @@ public abstract class SlotPanel extends javax.swing.JPanel {
             }
         }
 
-        firstSlotSlideOverlays.sort(ObsAutomationTwo.overlaySorter);
-        firstSlotCamOverlays.sort(ObsAutomationTwo.overlaySorter);
+        firstSlotSlideOverlays.sort(ObsAutomation.overlaySorter);
+        firstSlotCamOverlays.sort(ObsAutomation.overlaySorter);
         firstSlotOverlays = firstSlotCamOverlays;
         firstSlotCurrentOverlay = firstSlotOverlays.get(0);
 
@@ -141,7 +140,7 @@ public abstract class SlotPanel extends javax.swing.JPanel {
             public void paint(Graphics grphcs) {
                 super.paint(grphcs);
                 Graphics2D g2d = (Graphics2D) grphcs;
-                final Object currentScene = ObsAutomationTwo.getCurrentScene();
+                final Object currentScene = ObsAutomation.getCurrentScene();
                 if (getSceneToRectMap().containsKey(currentScene)) {
                     Rectangle r = getSceneToRectMap().get(currentScene);
                     try {
@@ -278,9 +277,9 @@ public abstract class SlotPanel extends javax.swing.JPanel {
                     try {
                         Thread.sleep(750);
                     } catch (InterruptedException ex) {
-                        Logger.getLogger(ObsAutomationTwo.class.getName()).log(Level.SEVERE, null, ex);
+                        Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
                     }
-                    Image firstSlotThumbCapture = ImageUtilities.getImage(ObsAutomationTwo.robot.createScreenCapture(slotThumbRect), 2, 0);
+                    Image firstSlotThumbCapture = ImageUtilities.getImage(ObsAutomation.robot.createScreenCapture(slotThumbRect), 2, 0);
                     firstSlotLabel.setIcon(new ImageIcon(firstSlotThumbCapture));
                 }
             }

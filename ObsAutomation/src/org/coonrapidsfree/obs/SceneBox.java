@@ -1,4 +1,4 @@
-package org.coonrapidsfree.obs.two;
+package org.coonrapidsfree.obs;
 
 import java.awt.Rectangle;
 

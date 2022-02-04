@@ -1,463 +1,62 @@
 package org.coonrapidsfree.obs;
 
-import com.sun.org.apache.bcel.internal.generic.AALOAD;
-import java.awt.AWTException;
-import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.Image;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Robot;
-import java.awt.Stroke;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.SwingUtilities;
 import net.twasi.obsremotejava.OBSRemoteController;
 import net.twasi.obsremotejava.callbacks.Callback;
+import net.twasi.obsremotejava.events.responses.SwitchScenesResponse;
+import net.twasi.obsremotejava.requests.GetCurrentScene.GetCurrentSceneResponse;
 import net.twasi.obsremotejava.requests.SetCurrentScene.SetCurrentSceneResponse;
-import net.twasi.obsremotejava.requests.SetSceneItemProperties.SetSceneItemPropertiesResponse;
 import net.twasi.obsremotejava.requests.SetStudioModeEnabled.SetStudioModeEnabledResponse;
 import net.twasi.obsremotejava.requests.SetTransitionDuration.SetTransitionDurationResponse;
 import net.twasi.obsremotejava.requests.StartRecording.StartRecordingResponse;
 import net.twasi.obsremotejava.requests.StartStreaming.StartStreamingResponse;
 import net.twasi.obsremotejava.requests.StopRecording.StopRecordingResponse;
 import net.twasi.obsremotejava.requests.StopStreaming.StopStreamingResponse;
+import org.coonrapidsfree.obs.ImageUtilities;
+import org.coonrapidsfree.obs.SlotPanel;
+import org.coonrapidsfree.obs.SlideState;
+import org.coonrapidsfree.obs.shottype.ShotTypeEnum;
 import org.coonrapidsfree.util.ImageCreator;
 
 public class ObsAutomation extends javax.swing.JFrame {
 
-    private BufferedImage blankSlideImage;
-    private boolean saveBlankSlideImage;
+    public static String firstScene = "Cam 1 1944 1,1";
+    public String firstSceneLabel = "<html><body><%SCENE%> will be automatically pressed.<br/>after 2 seconds -CREF lower third will automatically be pressed.<br/>after 10 seconds -CREF lower thrid will automatically turn off.";
 
-    /**
-     * @return the currentSceneString
-     */
-    public String getCurrentSceneString() {
-        return currentSceneString;
+    public static Object getCurrentScene() {
+        return currentScene;
     }
+    private boolean switchToSlides;
 
     /**
-     * @param currentSceneString the currentSceneString to set
-     */
-    public void setCurrentSceneString(String currentSceneString) {
-        this.currentSceneString = currentSceneString;
-        currentSceneLabel.setText(currentSceneString);
-    }
-
-    Map<String, List<String>> sceneMoveTransitionMap = new HashMap<String, List<String>>();
-    CamEnum currentScene = Slides.getInstance();
-
-    Robot r;
-
-    OBSRemoteController controller = new OBSRemoteController("ws://localhost:4444", false, "crefObsWebsockets", true);
-//    OBSRemoteController controller = new OBSRemoteController("ws://localhost:4444", false);
-
-    Callback<SetCurrentSceneResponse> callback = new Callback<SetCurrentSceneResponse>() {
-        @Override
-        public void run(SetCurrentSceneResponse rt) {
-            if (rt.getError() != null) {
-                System.out.println(rt.getError());
-            }
-
-        }
-    };
-    private Callback<SetTransitionDurationResponse> responseCallback = new Callback<SetTransitionDurationResponse>() {
-        @Override
-        public void run(SetTransitionDurationResponse rt) {
-            if (rt.getError() != null) {
-                System.out.println(rt.getError());
-            }
-        }
-    };
-
-    /**
-     * Creates new form ObsAutomation
+     * Creates new form ObsAutomationTwo
      */
     public ObsAutomation() {
-
-        try {
-            r = new Robot();
-        } catch (AWTException ex) {
-            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        if (controller.isFailed()) { // Awaits response from OBS
-            // Here you can handle a failed connection request
-            System.out.println("CONNECTION TO OBS FAILED");
-        }
-
-        List<String> tempList = new ArrayList<String>();
-        for (MainCamEnum mce : MainCamEnum.values()) {
-            tempList.add(mce.getSlideSceneName());
-        }
-        for (SdCamEnum mce : SdCamEnum.values()) {
-            tempList.add(mce.getSlideSceneName());
-        }
-        for (SdCam2Enum ce : SdCam2Enum.values()) {
-            tempList.add(ce.getSlideSceneName());
-        }
-
-        sceneMoveTransitionMap.put("Slides With Overlay", tempList);
-
-        tempList = new ArrayList<String>();
-        for (MainCamEnum mce : MainCamEnum.values()) {
-            tempList.add(mce.getSlideSceneName());
-        }
-        tempList.add("Slides With Overlay");
-
-        for (int i = 0; i < tempList.size() - 1; i++) {
-            String s = tempList.get(i);
-            sceneMoveTransitionMap.put(s, tempList);
-        }
-
-        tempList = new ArrayList<String>();
-        for (SdCamEnum mce : SdCamEnum.values()) {
-            tempList.add(mce.getSlideSceneName());
-        }
-        tempList.add("Slides With Overlay");
-
-        for (int i = 0; i < tempList.size() - 1; i++) {
-            String s = tempList.get(i);
-            sceneMoveTransitionMap.put(s, tempList);
-        }
-        
-        tempList = new ArrayList<String>();
-        for (SdCam2Enum mce : SdCam2Enum.values()) {
-            tempList.add(mce.getSlideSceneName());
-        }
-        tempList.add("Slides With Overlay");
-
-        for (int i = 0; i < tempList.size() - 1; i++) {
-            String s = tempList.get(i);
-            sceneMoveTransitionMap.put(s, tempList);
-        }
-
-        tempList = new ArrayList<String>();
-        for (MainCamEnum mce : MainCamEnum.values()) {
-            tempList.add(mce.getSceneName());
-        }
-
-        for (String s : tempList) {
-            sceneMoveTransitionMap.put(s, tempList);
-        }
-
-        tempList = new ArrayList<String>();
-        for (SdCamEnum mce : SdCamEnum.values()) {
-            tempList.add(mce.getSceneName());
-        }
-
-        for (String s : tempList) {
-            sceneMoveTransitionMap.put(s, tempList);
-        }
-        
-        tempList = new ArrayList<String>();
-        for (SdCam2Enum mce : SdCam2Enum.values()) {
-            tempList.add(mce.getSceneName());
-        }
-
-        for (String s : tempList) {
-            sceneMoveTransitionMap.put(s, tempList);
-        }
-
         initComponents();
-        setLocation(960, 0);
-
-        Notifier.getInstance().addObserver(new Observer() {
-            @Override
-            public void notify(CamEnum shot) {
-                if (!cancelAutoPilot) {
-                    if (Slides.getInstance().equals(shot)) {
-                        transition(shot);
-                    } else if (!currentScene.equals(shot) && !SlideState.FULL_SLIDES.equals(slideState) && lastTransitionTime + 1500 < System.currentTimeMillis()) {
-                        transition(shot);
-                    }
-                }
-            }
-
-            @Override
-            public void setTransition(boolean on) {
-                inTransition = on;
-            }
-        });
-
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int sdX = 486;
-                int sdY = 288;
-                int sdW = 168;
-                int sdH = 88;
-                Stroke stroke = new BasicStroke(3f);
-                int red = 255;
-                while (true) {
-                    red += 20;
-                    if (red > 255) {
-                        red = red - 155;
-                    }
-                    Color slideComboColor = new Color(red, 0, 0, 200);
-
-                    BufferedImage tempImage = r.createScreenCapture(new Rectangle(new Point(53, 292), new Dimension(123, 66)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(1, 1, 80, 60);
-                    }
-                    double scale = .8;
-                    genHdButton4.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, scale, 0)));
-                    genHdButton4.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(70, 292), new Dimension(123, 66)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(1, 1, 80, 60);
-                    }
-                    genHdButton45.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, scale, 0)));
-                    genHdButton45.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(90, 292), new Dimension(123, 66)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(20, 1, 80, 60);
-                    }
-                    genHdButton5.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, scale, 0)));
-                    genHdButton5.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(115, 292), new Dimension(123, 66)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(25, 1, 80, 60);
-                    }
-                    genHdButton55.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, scale, 0)));
-                    genHdButton55.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(133, 292), new Dimension(123, 66)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(43, 1, 80, 60);
-                    }
-                    genHdButton6.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, scale, 0)));
-                    genHdButton6.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(50, 280), new Dimension(210, 113)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(21, 1, 166, 110);
-                    }
-                    genHdButton.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, .6, 0)));
-                    genHdButton.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(115, 297), new Dimension(78, 41)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(new BasicStroke(1f));
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(7, 1, 62, 40);
-                    }
-                    genHdButtonTight.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, 1.6, 0)));
-                    genHdButtonTight.setText("");
-
-                    scale = .7;
-                    genSdButton4.setIcon(new ImageIcon(ImageUtilities.getImage(r.createScreenCapture(new Rectangle(new Point(sdX, sdY), new Dimension(sdW, sdH))), scale, 0)));
-                    genSdButton4.setText("");
-
-                    genSdButton5.setIcon(new ImageIcon(ImageUtilities.getImage(r.createScreenCapture(new Rectangle(new Point(sdX + 20, sdY), new Dimension(sdW, sdH))), scale, 0)));
-                    genSdButton5.setText("");
-
-                    genSdButton6.setIcon(new ImageIcon(ImageUtilities.getImage(r.createScreenCapture(new Rectangle(new Point(sdX + 40, sdY), new Dimension(sdW, sdH))), scale, 0)));
-                    genSdButton6.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(480, 280), new Dimension(210, 113)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(21, 1, 166, 110);
-                    }
-                    genSdButton.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, .6, 0)));
-                    genSdButton.setText("");
-
-                    tempImage = r.createScreenCapture(new Rectangle(new Point(710, 280), new Dimension(200, 113)));
-                    if (SlideState.SLIDE_COMBO.equals(slideState)) {
-                        Graphics2D g2d = (Graphics2D) tempImage.getGraphics();
-                        g2d.setStroke(stroke);
-                        g2d.setColor(slideComboColor);
-                        g2d.drawRect(11, 1, 166, 110);
-                    }
-                    sdCam2Button.setIcon(new ImageIcon(ImageUtilities.getImage(tempImage, .6, 0)));
-                    sdCam2Button.setText("");
-
-                    fullSlidesButton.setIcon(new ImageIcon(ImageUtilities.getImage(r.createScreenCapture(new Rectangle(new Point(265, 280), new Dimension(210, 113))), .75, 0)));
-                    fullSlidesButton.setText("");
-                    try {
-                        Thread.sleep(750);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
-        });
-        t.start();
-
-        Thread slideThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                prevSlideImage = null;
-                boolean prevNotADifference = true;
-                while (true) {
-                    slideImage = r.createScreenCapture(new Rectangle(new Point(270, 280), new Dimension(200, 110)));
-                    slideLabelImage = r.createScreenCapture(new Rectangle(new Point(270, 280), new Dimension(200, 110)));
-
-                    Graphics g = slideLabelImage.getGraphics();
-                    g.setColor(Color.RED);
-                    g.drawRect(slidesX, slidesY, slidesW, slidesH);
-
-                    if (prevSlideImage != null) {
-                        boolean slideDifference = false;
-                        for (int i = slidesX; i < slidesW + slidesX && !slideDifference; i++) {
-                            for (int j = slidesY; j < slidesH + slidesY && !slideDifference; j++) {
-                                if (isDifferent(slideImage.getRGB(i, j), prevSlideImage.getRGB(i, j))) {
-                                    slideDifference = true;
-                                }
-                            }
-                        }
-
-                        if (saveBlankSlideImage) {
-                            blankSlideImage = prevSlideImage;
-                            saveBlankSlideImage = false;
-
-                            jButton16.setIcon(new ImageIcon(blankSlideImage.getSubimage(slidesX, slidesY, slidesW, slidesH)));
-                            jButton16.setText("");
-                        }
-
-                        if (slideDifference) {
-                            if (prevNotADifference) {
-                                boolean blankSlide = false;
-                                if (blankSlideImage != null) {
-                                    blankSlide = true;
-                                    for (int i = slidesX; i < slidesW + slidesX && blankSlide; i++) {
-                                        for (int j = slidesY; j < slidesH + slidesY && blankSlide; j++) {
-                                            if (isDifferent(slideImage.getRGB(i, j), blankSlideImage.getRGB(i, j))) {
-                                                blankSlide = false;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (blankSlide) {
-                                    if (!cancelAutoPilot) {
-                                        setSlideState(SlideState.NO_SLIDE);
-                                        transition(lastCamRecommendation);
-                                    }
-                                } else {
-
-                                    System.out.println("New Slide.");
-                                    newSlideTime = System.currentTimeMillis();
-                                    try {
-//                                        System.out.println("autopilot on? " + !cancelAutoPilot);
-                                        if (!cancelAutoPilot) {
-                                            setSlideState(SlideState.FULL_SLIDES);
-                                            fullSlidesButton.doClick();
-                                            final long slideTime = newSlideTime;
-                                            Thread t = new Thread(new Runnable() {
-                                                @Override
-                                                public void run() {
-                                                    try {
-                                                        Thread.sleep(Long.valueOf(serviceSectionState.getFullScreenSlideTime()));
-                                                    } catch (InterruptedException ex) {
-                                                        Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                                                    }
-                                                    if (!cancelAutoPilot && SlideState.FULL_SLIDES.equals(slideState) && newSlideTime == slideTime) {
-                                                        setSlideState(SlideState.SLIDE_COMBO);
-                                                        transition(lastSdCamRecommendation);
-//                                                        transition(lastMainCamRecommendation);
-                                                        Thread fsThread = new Thread(new Runnable() {
-                                                            @Override
-                                                            public void run() {
-                                                                try {
-                                                                    System.out.println("    waiting to switch to full camera in (ms): " + serviceSectionState.getComboSlideScreenTime());
-                                                                    Thread.sleep(Long.valueOf(serviceSectionState.getComboSlideScreenTime()));
-                                                                } catch (InterruptedException ex) {
-                                                                    Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                                                                }
-                                                                if (!cancelAutoPilot && SlideState.SLIDE_COMBO.equals(slideState) && newSlideTime == slideTime) {
-                                                                    setSlideState(SlideState.NO_SLIDE);
-                                                                    transition(lastCamRecommendation);
-                                                                }
-                                                            }
-                                                        });
-                                                        fsThread.start();
-                                                    }
-                                                }
-                                            });
-                                            t.start();
-                                        } else if (!cancelAutoSlideSwitch) {
-                                            if (slideState.equals(SlideState.NO_SLIDE)) {
-                                                fullSlidesButton.doClick();
-                                            }
-                                        } else {
-                                            Notifier.getInstance().notify(Slides.getInstance());
-                                            slidesPanel.setOpaque(true);
-                                        }
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-                                    }
-
-                                    prevNotADifference = false;
-                                }
-                            }
-                        } else {
-                            prevNotADifference = true;
-                        }
-                    }
-
-                    slidesLabel.setIcon(new ImageIcon(slideLabelImage));
-                    prevSlideImage = slideImage;
-                    try {
-                        Thread.sleep(500);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-
-            }
-        });
-        slideThread.start();
-
-        overlaySwitchButton.setIcon(new ImageIcon(SlideState.SLIDE_COMBO.getOverlayImage()));
-        overlaySwitchButton.setText("");
-        overlaySwitchButton1.setIcon(new ImageIcon(SlideState.NO_SLIDE.getOverlayImage()));
-        overlaySwitchButton1.setText("");
-
-        setSize(new Dimension(950, 800));
+        postInitComponents();
     }
-
-    boolean inTransition = false;
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -471,7 +70,9 @@ public class ObsAutomation extends javax.swing.JFrame {
         helperDialog = new javax.swing.JDialog();
         jLabel10 = new javax.swing.JLabel();
         jLabel11 = new javax.swing.JLabel();
+        jLabel23 = new javax.swing.JLabel();
         jLabel12 = new javax.swing.JLabel();
+        jLabel22 = new javax.swing.JLabel();
         jLabel13 = new javax.swing.JLabel();
         jLabel14 = new javax.swing.JLabel();
         worshipSetCountDownDialog = new javax.swing.JDialog();
@@ -482,111 +83,113 @@ public class ObsAutomation extends javax.swing.JFrame {
         jPanel22 = new javax.swing.JPanel();
         jLabel15 = new javax.swing.JLabel();
         jLabel21 = new javax.swing.JLabel();
-        jSplitPane1 = new javax.swing.JSplitPane();
-        jPanel16 = new javax.swing.JPanel();
-        jPanel19 = new javax.swing.JPanel();
-        jPanel17 = new javax.swing.JPanel();
-        jLabel3 = new javax.swing.JLabel();
-        jLabel18 = new javax.swing.JLabel();
-        jLabel1 = new javax.swing.JLabel();
-        jLabel2 = new javax.swing.JLabel();
-        jLabel4 = new javax.swing.JLabel();
-        jLabel5 = new javax.swing.JLabel();
-        jLabel8 = new javax.swing.JLabel();
-        jLabel6 = new javax.swing.JLabel();
-        jPanel18 = new javax.swing.JPanel();
-        prepHelperButton = new javax.swing.JButton();
-        jPanel4 = new javax.swing.JPanel();
-        fadeDelayField = new javax.swing.JTextField();
-        moveDelaySpinner = new javax.swing.JTextField();
-        worshipCountdownTimer = new javax.swing.JTextField();
-        startCountdownButton = new javax.swing.JButton();
-        jLabel9 = new javax.swing.JLabel();
-        startStreamButton = new javax.swing.JButton();
-        jPanel23 = new javax.swing.JPanel();
-        jPanel25 = new javax.swing.JPanel();
-        jPanel26 = new javax.swing.JPanel();
-        jPanel8 = new javax.swing.JPanel();
-        autoPilotButton = new javax.swing.JButton();
-        jPanel7 = new javax.swing.JPanel();
-        jLabel20 = new javax.swing.JLabel();
-        sensitivityField = new javax.swing.JTextField();
+        autopilotDialog = new javax.swing.JDialog();
         jScrollPane1 = new javax.swing.JScrollPane();
-        jPanel12 = new javax.swing.JPanel();
-        jPanel37 = new javax.swing.JPanel();
-        sdCameraLabel = new javax.swing.JLabel();
-        jPanel10 = new javax.swing.JPanel();
-        jButton6 = new javax.swing.JButton();
-        jButton7 = new javax.swing.JButton();
-        jButton8 = new javax.swing.JButton();
-        jButton9 = new javax.swing.JButton();
-        jButton10 = new javax.swing.JButton();
-        jPanel30 = new javax.swing.JPanel();
-        camera1Label = new javax.swing.JLabel();
-        jPanel11 = new javax.swing.JPanel();
-        jButton11 = new javax.swing.JButton();
-        jButton12 = new javax.swing.JButton();
-        jButton13 = new javax.swing.JButton();
-        jButton14 = new javax.swing.JButton();
-        jButton15 = new javax.swing.JButton();
-        jPanel13 = new javax.swing.JPanel();
-        slidesLabel = new javax.swing.JLabel();
-        jPanel14 = new javax.swing.JPanel();
-        jButton16 = new javax.swing.JButton();
-        jPanel28 = new javax.swing.JPanel();
-        jPanel1 = new javax.swing.JPanel();
-        jPanel24 = new javax.swing.JPanel();
-        jLabel16 = new javax.swing.JLabel();
-        jButton1 = new javax.swing.JButton();
-        jButton2 = new javax.swing.JButton();
-        jButton3 = new javax.swing.JButton();
-        jPanel3 = new javax.swing.JPanel();
-        jPanel34 = new javax.swing.JPanel();
-        jLabel17 = new javax.swing.JLabel();
-        currentSceneLabel = new javax.swing.JLabel();
-        jLabel7 = new javax.swing.JLabel();
-        currentOverlayLabel = new javax.swing.JLabel();
-        jPanel36 = new javax.swing.JPanel();
-        jPanel29 = new javax.swing.JPanel();
-        jPanel38 = new javax.swing.JPanel();
-        sdCam2Button = new javax.swing.JButton();
-        filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(10, 0), new java.awt.Dimension(10, 0), new java.awt.Dimension(10, 32767));
-        genHdButton = new javax.swing.JButton();
-        filler1 = new javax.swing.Box.Filler(new java.awt.Dimension(10, 0), new java.awt.Dimension(10, 0), new java.awt.Dimension(10, 32767));
-        genHdButtonTight = new javax.swing.JButton();
-        jPanel42 = new javax.swing.JPanel();
         jPanel27 = new javax.swing.JPanel();
-        genHdButton4 = new javax.swing.JButton();
-        genHdButton45 = new javax.swing.JButton();
-        genHdButton5 = new javax.swing.JButton();
-        genHdButton55 = new javax.swing.JButton();
-        genHdButton6 = new javax.swing.JButton();
-        jPanel35 = new javax.swing.JPanel();
-        jPanel40 = new javax.swing.JPanel();
-        genSdButton = new javax.swing.JButton();
-        jPanel41 = new javax.swing.JPanel();
+        jPanel28 = new javax.swing.JPanel();
+        programPanel = new javax.swing.JPanel();
+        autopilotProgramLabel = new javax.swing.JLabel();
+        autopilotProgramLabel1 = new javax.swing.JLabel();
+        slot1Panel = new javax.swing.JPanel();
+        jPanel36 = new javax.swing.JPanel();
+        autopilotSlot1Label = new javax.swing.JLabel();
+        autopilotSlot1Label1 = new javax.swing.JLabel();
         jPanel39 = new javax.swing.JPanel();
-        genSdButton4 = new javax.swing.JButton();
-        genSdButton5 = new javax.swing.JButton();
-        genSdButton6 = new javax.swing.JButton();
-        jPanel9 = new javax.swing.JPanel();
-        jButton4 = new javax.swing.JButton();
-        slidesPanel = new javax.swing.JPanel();
-        fullSlidesButton = new javax.swing.JButton();
+        slot1Box = new javax.swing.JCheckBox();
+        jLabel20 = new javax.swing.JLabel();
+        slot1Slider = new javax.swing.JSlider();
+        jButton2 = new javax.swing.JButton();
+        slot3Panel = new javax.swing.JPanel();
+        jPanel37 = new javax.swing.JPanel();
+        autopilotSlot3Label = new javax.swing.JLabel();
+        autopilotSlot3Label1 = new javax.swing.JLabel();
+        jPanel40 = new javax.swing.JPanel();
+        slot3Box = new javax.swing.JCheckBox();
+        jLabel18 = new javax.swing.JLabel();
+        slot3Slider = new javax.swing.JSlider();
+        jButton3 = new javax.swing.JButton();
+        slot4Panel = new javax.swing.JPanel();
+        jPanel38 = new javax.swing.JPanel();
+        autopilotSlot4Label = new javax.swing.JLabel();
+        autopilotSlot4Label1 = new javax.swing.JLabel();
+        jPanel41 = new javax.swing.JPanel();
+        slot4Box = new javax.swing.JCheckBox();
+        jLabel19 = new javax.swing.JLabel();
+        slot4Slider = new javax.swing.JSlider();
+        jButton6 = new javax.swing.JButton();
+        autoPilotMessagePanel = new javax.swing.JPanel();
+        autoPilotUpdatePanel = new javax.swing.JPanel();
+        jPanel29 = new javax.swing.JPanel();
+        jLabel4 = new javax.swing.JLabel();
+        slideCountdownLabel = new javax.swing.JLabel();
+        jPanel30 = new javax.swing.JPanel();
+        jPanel35 = new javax.swing.JPanel();
         jPanel31 = new javax.swing.JPanel();
-        jPanel33 = new javax.swing.JPanel();
-        overlaySwitchButton = new javax.swing.JButton();
-        overlaySwitchButton1 = new javax.swing.JButton();
-        jPanel5 = new javax.swing.JPanel();
+        jPanel42 = new javax.swing.JPanel();
+        jLabel1 = new javax.swing.JLabel();
+        multiplierLabel = new javax.swing.JLabel();
+        jPanel34 = new javax.swing.JPanel();
+        jLabel5 = new javax.swing.JLabel();
+        sensitivityLabel = new javax.swing.JLabel();
+        jPanel32 = new javax.swing.JPanel();
+        slideMultiplierSlider = new javax.swing.JSlider();
+        sensitivitySlider = new javax.swing.JSlider();
+        jSplitPane1 = new javax.swing.JSplitPane();
+        jPanel1 = new javax.swing.JPanel();
         jPanel2 = new javax.swing.JPanel();
+        jPanel6 = new javax.swing.JPanel();
+        pickerPanel = new javax.swing.JPanel();
+        jPanel7 = new javax.swing.JPanel();
+        jPanel3 = new javax.swing.JPanel();
+        jPanel12 = new javax.swing.JPanel();
+        jPanel9 = new javax.swing.JPanel();
         welcomeButton = new javax.swing.JButton();
         welcomeButton2 = new javax.swing.JButton();
         welcomeButton1 = new javax.swing.JButton();
         goodByeButton = new javax.swing.JButton();
-        jPanel6 = new javax.swing.JPanel();
-        jPanel15 = new javax.swing.JPanel();
-        oneButton = new javax.swing.JButton();
-        twoButton = new javax.swing.JButton();
+        jPanel10 = new javax.swing.JPanel();
+        jPanel8 = new javax.swing.JPanel();
+        jPanel45 = new javax.swing.JPanel();
+        jButton5 = new javax.swing.JButton();
+        jButton4 = new javax.swing.JButton();
+        slidesPanel = new javax.swing.JPanel();
+        fullSlidesButton = new javax.swing.JButton();
+        jPanel11 = new javax.swing.JPanel();
+        jPanel33 = new javax.swing.JPanel();
+        jPanel4 = new javax.swing.JPanel();
+        overlaySwitchButton = new javax.swing.JButton();
+        overlaySwitchButton1 = new javax.swing.JButton();
+        jPanel5 = new javax.swing.JPanel();
+        currentOverlayLabel = new javax.swing.JLabel();
+        filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(60, 0), new java.awt.Dimension(60, 0), new java.awt.Dimension(60, 32767));
+        jPanel23 = new javax.swing.JPanel();
+        jPanel13 = new javax.swing.JPanel();
+        jPanel14 = new javax.swing.JPanel();
+        fadeSlider = new javax.swing.JSlider();
+        moveSlider = new javax.swing.JSlider();
+        jPanel16 = new javax.swing.JPanel();
+        jPanel25 = new javax.swing.JPanel();
+        jLabel2 = new javax.swing.JLabel();
+        fadeLabel = new javax.swing.JLabel();
+        jPanel26 = new javax.swing.JPanel();
+        jLabel3 = new javax.swing.JLabel();
+        moveLabel = new javax.swing.JLabel();
+        jPanel24 = new javax.swing.JPanel();
+        jPanel19 = new javax.swing.JPanel();
+        jPanel17 = new javax.swing.JPanel();
+        streamPrepHelperLabel = new javax.swing.JLabel();
+        jLabel17 = new javax.swing.JLabel();
+        jLabel6 = new javax.swing.JLabel();
+        jLabel7 = new javax.swing.JLabel();
+        jLabel8 = new javax.swing.JLabel();
+        jLabel9 = new javax.swing.JLabel();
+        jPanel18 = new javax.swing.JPanel();
+        prepHelperButton = new javax.swing.JButton();
+        jButton1 = new javax.swing.JButton();
+        worshipCountdownTimer = new javax.swing.JTextField();
+        startCountdownButton = new javax.swing.JButton();
+        jLabel16 = new javax.swing.JLabel();
+        startStreamButton = new javax.swing.JButton();
 
         helperDialog.addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosing(java.awt.event.WindowEvent evt) {
@@ -595,27 +198,37 @@ public class ObsAutomation extends javax.swing.JFrame {
         });
         helperDialog.getContentPane().setLayout(new java.awt.GridLayout(0, 1));
 
-        jLabel10.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+        jLabel10.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
         jLabel10.setText("Go to youtube.com in Chrome. Click Create (Looks like a video camera with a + on it).  Select Go Live.");
         helperDialog.getContentPane().add(jLabel10);
 
-        jLabel11.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
-        jLabel11.setText("Click Edit.  Update the title and description to the sermon title.  Minimize Chrome.");
+        jLabel11.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
+        jLabel11.setText("Click Edit.  Update the title and description to the sermon title.");
         helperDialog.getContentPane().add(jLabel11);
+
+        jLabel23.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
+        jLabel23.setText("Click Edit.  Update the title and description to the sermon title.  Minimize Chrome.");
+        helperDialog.getContentPane().add(jLabel23);
 
         jLabel12.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
         helperDialog.getContentPane().add(jLabel12);
 
-        jLabel13.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+        jLabel22.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
+        jLabel22.setForeground(new java.awt.Color(153, 0, 0));
+        jLabel22.setText("Press record on the camera.");
+        helperDialog.getContentPane().add(jLabel22);
+
+        jLabel13.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
         jLabel13.setText("In OBS, Select the View menu, Select Multiview (Windowed), and drag the resulting popup window to the upper left hand corner of the screen.");
         helperDialog.getContentPane().add(jLabel13);
 
-        jLabel14.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
+        jLabel14.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
         jLabel14.setText("Close this Dialog");
         helperDialog.getContentPane().add(jLabel14);
 
         worshipSetCountDownDialog.setUndecorated(true);
 
+        countDownCancelButton.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
         countDownCancelButton.setText("Cancel");
         countDownCancelButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -626,6 +239,7 @@ public class ObsAutomation extends javax.swing.JFrame {
 
         worshipSetCountDownDialog.getContentPane().add(jPanel20, java.awt.BorderLayout.SOUTH);
 
+        countDownLabel.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
         countDownLabel.setText("jLabel15");
         jPanel21.add(countDownLabel);
 
@@ -633,7 +247,8 @@ public class ObsAutomation extends javax.swing.JFrame {
 
         jPanel22.setLayout(new java.awt.BorderLayout());
 
-        jLabel15.setText("<html><body>Camera 1 Overlay will be automatically pressed.<br/>after 2 seconds -CREF lower third will automatically be pressed.<br/>after 10 seconds -CREF lower thrid will automatically turn off.");
+        jLabel15.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel15.setText("<html><body><font color=orange><%SCENE%></font> will be automatically pressed.<br/>after 2 seconds -CREF lower third will automatically be pressed.<br/>after 10 seconds -CREF lower thrid will automatically turn off.");
         jPanel22.add(jLabel15, java.awt.BorderLayout.CENTER);
 
         jLabel21.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
@@ -641,6 +256,214 @@ public class ObsAutomation extends javax.swing.JFrame {
         jPanel22.add(jLabel21, java.awt.BorderLayout.PAGE_START);
 
         worshipSetCountDownDialog.getContentPane().add(jPanel22, java.awt.BorderLayout.CENTER);
+
+        autopilotDialog.setAlwaysOnTop(true);
+        autopilotDialog.setUndecorated(true);
+
+        jPanel27.setLayout(new java.awt.BorderLayout());
+
+        jPanel28.setLayout(new java.awt.GridLayout(0, 1));
+
+        programPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Program:"));
+        programPanel.setLayout(new java.awt.GridLayout(1, 0));
+        programPanel.add(autopilotProgramLabel);
+        programPanel.add(autopilotProgramLabel1);
+
+        jPanel28.add(programPanel);
+
+        slot1Panel.setBorder(javax.swing.BorderFactory.createTitledBorder("Slot 1:"));
+        slot1Panel.setLayout(new java.awt.BorderLayout());
+
+        jPanel36.setLayout(new java.awt.GridLayout(1, 0));
+        jPanel36.add(autopilotSlot1Label);
+        jPanel36.add(autopilotSlot1Label1);
+
+        slot1Panel.add(jPanel36, java.awt.BorderLayout.CENTER);
+
+        jPanel39.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 5, 0));
+
+        slot1Box.setSelected(true);
+        slot1Box.setText("Use Slot");
+        slot1Box.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+        jPanel39.add(slot1Box);
+
+        jLabel20.setText("Threshold:");
+        jPanel39.add(jLabel20);
+
+        slot1Slider.setMajorTickSpacing(1000);
+        slot1Slider.setMaximum(3000);
+        slot1Slider.setPaintTicks(true);
+        slot1Slider.setValue(300);
+        jPanel39.add(slot1Slider);
+
+        jButton2.setText("TIGHT");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
+        jPanel39.add(jButton2);
+
+        slot1Panel.add(jPanel39, java.awt.BorderLayout.NORTH);
+
+        jPanel28.add(slot1Panel);
+
+        slot3Panel.setBorder(javax.swing.BorderFactory.createTitledBorder("Slot 3:"));
+        slot3Panel.setLayout(new java.awt.BorderLayout());
+
+        jPanel37.setLayout(new java.awt.GridLayout(1, 0));
+        jPanel37.add(autopilotSlot3Label);
+        jPanel37.add(autopilotSlot3Label1);
+
+        slot3Panel.add(jPanel37, java.awt.BorderLayout.CENTER);
+
+        jPanel40.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 5, 0));
+
+        slot3Box.setSelected(true);
+        slot3Box.setText("Use Slot");
+        slot3Box.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+        jPanel40.add(slot3Box);
+
+        jLabel18.setText("Threshold:");
+        jPanel40.add(jLabel18);
+
+        slot3Slider.setMajorTickSpacing(1000);
+        slot3Slider.setMaximum(3000);
+        slot3Slider.setPaintTicks(true);
+        slot3Slider.setValue(300);
+        jPanel40.add(slot3Slider);
+
+        jButton3.setText("TIGHT");
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton3ActionPerformed(evt);
+            }
+        });
+        jPanel40.add(jButton3);
+
+        slot3Panel.add(jPanel40, java.awt.BorderLayout.NORTH);
+
+        jPanel28.add(slot3Panel);
+
+        slot4Panel.setBorder(javax.swing.BorderFactory.createTitledBorder("Slot 4:"));
+        slot4Panel.setLayout(new java.awt.BorderLayout());
+
+        jPanel38.setLayout(new java.awt.GridLayout(1, 0));
+        jPanel38.add(autopilotSlot4Label);
+        jPanel38.add(autopilotSlot4Label1);
+
+        slot4Panel.add(jPanel38, java.awt.BorderLayout.CENTER);
+
+        jPanel41.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 5, 0));
+
+        slot4Box.setText("Use Slot");
+        slot4Box.setHorizontalTextPosition(javax.swing.SwingConstants.LEADING);
+        jPanel41.add(slot4Box);
+
+        jLabel19.setText("Threshold:");
+        jPanel41.add(jLabel19);
+
+        slot4Slider.setMajorTickSpacing(1000);
+        slot4Slider.setMaximum(3000);
+        slot4Slider.setPaintTicks(true);
+        slot4Slider.setValue(300);
+        jPanel41.add(slot4Slider);
+
+        jButton6.setText("TIGHT");
+        jButton6.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton6ActionPerformed(evt);
+            }
+        });
+        jPanel41.add(jButton6);
+
+        slot4Panel.add(jPanel41, java.awt.BorderLayout.NORTH);
+
+        jPanel28.add(slot4Panel);
+
+        jPanel27.add(jPanel28, java.awt.BorderLayout.CENTER);
+
+        jScrollPane1.setViewportView(jPanel27);
+
+        autopilotDialog.getContentPane().add(jScrollPane1, java.awt.BorderLayout.CENTER);
+
+        autoPilotMessagePanel.setLayout(new java.awt.GridLayout(1, 0));
+        autopilotDialog.getContentPane().add(autoPilotMessagePanel, java.awt.BorderLayout.WEST);
+
+        autoPilotUpdatePanel.setLayout(new java.awt.BorderLayout());
+
+        jLabel4.setText("Slide Countdown:");
+        jPanel29.add(jLabel4);
+
+        slideCountdownLabel.setText("0");
+        jPanel29.add(slideCountdownLabel);
+
+        autoPilotUpdatePanel.add(jPanel29, java.awt.BorderLayout.NORTH);
+
+        jPanel30.setLayout(new java.awt.BorderLayout());
+
+        jPanel35.setLayout(new java.awt.BorderLayout());
+
+        jPanel31.setLayout(new java.awt.GridLayout(0, 1));
+
+        jPanel42.setLayout(new java.awt.GridLayout(0, 1));
+
+        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel1.setText("Slide Multiplier:");
+        jPanel42.add(jLabel1);
+
+        multiplierLabel.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jPanel42.add(multiplierLabel);
+
+        jPanel31.add(jPanel42);
+
+        jPanel34.setBackground(new java.awt.Color(204, 204, 204));
+        jPanel34.setLayout(new java.awt.GridLayout(0, 1));
+
+        jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel5.setText("Sensitivity:");
+        jPanel34.add(jLabel5);
+
+        sensitivityLabel.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jPanel34.add(sensitivityLabel);
+
+        jPanel31.add(jPanel34);
+
+        jPanel35.add(jPanel31, java.awt.BorderLayout.WEST);
+
+        jPanel32.setLayout(new java.awt.GridLayout(0, 1));
+
+        slideMultiplierSlider.setMajorTickSpacing(500);
+        slideMultiplierSlider.setMaximum(5000);
+        slideMultiplierSlider.setMinimum(500);
+        slideMultiplierSlider.setPaintTicks(true);
+        slideMultiplierSlider.setToolTipText("");
+        slideMultiplierSlider.setValue(2000);
+        slideMultiplierSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                slideMultiplierSliderStateChanged(evt);
+            }
+        });
+        jPanel32.add(slideMultiplierSlider);
+
+        sensitivitySlider.setMajorTickSpacing(10);
+        sensitivitySlider.setMaximum(120);
+        sensitivitySlider.setMinimum(1);
+        sensitivitySlider.setPaintTicks(true);
+        sensitivitySlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                sensitivitySliderStateChanged(evt);
+            }
+        });
+        jPanel32.add(sensitivitySlider);
+
+        jPanel35.add(jPanel32, java.awt.BorderLayout.CENTER);
+
+        jPanel30.add(jPanel35, java.awt.BorderLayout.NORTH);
+
+        autoPilotUpdatePanel.add(jPanel30, java.awt.BorderLayout.CENTER);
+
+        autopilotDialog.getContentPane().add(autoPilotUpdatePanel, java.awt.BorderLayout.EAST);
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         addWindowFocusListener(new java.awt.event.WindowFocusListener() {
@@ -651,434 +474,81 @@ public class ObsAutomation extends javax.swing.JFrame {
             }
         });
 
-        jPanel16.setLayout(new java.awt.BorderLayout());
-
-        jPanel19.setLayout(new java.awt.BorderLayout());
-
-        jPanel17.setLayout(new java.awt.GridLayout(0, 1));
-
-        jLabel3.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel3.setText("Stream Prep Helper:");
-        jPanel17.add(jLabel3);
-
-        jLabel18.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jPanel17.add(jLabel18);
-
-        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel1.setText("Fade Delay (milliseconds):");
-        jPanel17.add(jLabel1);
-
-        jLabel2.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel2.setText("Move Delay (milliseconds):");
-        jPanel17.add(jLabel2);
-
-        jLabel4.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel4.setText("Countdown Timer (seconds):");
-        jPanel17.add(jLabel4);
-
-        jLabel5.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel5.setText("Start Countdown Worship Set:");
-        jPanel17.add(jLabel5);
-
-        jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jPanel17.add(jLabel8);
-
-        jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel6.setText("Stream and Record:");
-        jPanel17.add(jLabel6);
-
-        jPanel19.add(jPanel17, java.awt.BorderLayout.WEST);
-
-        jPanel18.setLayout(new java.awt.GridLayout(0, 1));
-
-        prepHelperButton.setText("Helper");
-        prepHelperButton.setToolTipText("<html><body>Switch to studio mode and back (fixes elgato audio problems)<br/>Open YouTube Studio<br/>");
-        prepHelperButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                prepHelperButtonActionPerformed(evt);
-            }
-        });
-        jPanel18.add(prepHelperButton);
-        jPanel18.add(jPanel4);
-
-        fadeDelayField.setColumns(6);
-        fadeDelayField.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
-        fadeDelayField.setText("1500");
-        jPanel18.add(fadeDelayField);
-
-        moveDelaySpinner.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
-        moveDelaySpinner.setText("5000");
-        jPanel18.add(moveDelaySpinner);
-
-        worshipCountdownTimer.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
-        worshipCountdownTimer.setText("10");
-        jPanel18.add(worshipCountdownTimer);
-
-        startCountdownButton.setText("Start");
-        startCountdownButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                startCountdownButtonActionPerformed(evt);
-            }
-        });
-        jPanel18.add(startCountdownButton);
-
-        jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jPanel18.add(jLabel9);
-
-        startStreamButton.setText("Start");
-        startStreamButton.setEnabled(false);
-        startStreamButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                startStreamButtonActionPerformed(evt);
-            }
-        });
-        jPanel18.add(startStreamButton);
-
-        jPanel19.add(jPanel18, java.awt.BorderLayout.EAST);
-
-        jPanel16.add(jPanel19, java.awt.BorderLayout.NORTH);
-
-        jPanel23.setLayout(new java.awt.BorderLayout());
-        jPanel23.add(jPanel25, java.awt.BorderLayout.PAGE_START);
-
-        jPanel26.setLayout(new java.awt.BorderLayout());
-
-        autoPilotButton.setText("Auto-Pilot");
-        autoPilotButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                autoPilotButtonActionPerformed(evt);
-            }
-        });
-        jPanel8.add(autoPilotButton);
-
-        jPanel26.add(jPanel8, java.awt.BorderLayout.CENTER);
-
-        jLabel20.setText("Sensitivity:");
-        jLabel20.setToolTipText("The lower the number, the more sensitive.");
-        jPanel7.add(jLabel20);
-
-        sensitivityField.setColumns(3);
-        sensitivityField.setText("30");
-        jPanel7.add(sensitivityField);
-
-        jPanel26.add(jPanel7, java.awt.BorderLayout.EAST);
-
-        jPanel23.add(jPanel26, java.awt.BorderLayout.PAGE_END);
-
-        jPanel12.setLayout(new java.awt.GridLayout(1, 0));
-
-        jPanel37.setBorder(javax.swing.BorderFactory.createTitledBorder("SD"));
-        jPanel37.setLayout(new java.awt.BorderLayout());
-        jPanel37.add(sdCameraLabel, java.awt.BorderLayout.CENTER);
-
-        jPanel10.setLayout(new java.awt.GridLayout(1, 0));
-
-        jButton6.setText("o");
-        jButton6.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton6.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton6ActionPerformed(evt);
-            }
-        });
-        jPanel10.add(jButton6);
-
-        jButton7.setText("o");
-        jButton7.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton7.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton7ActionPerformed(evt);
-            }
-        });
-        jPanel10.add(jButton7);
-
-        jButton8.setText("o");
-        jButton8.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton8.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton8ActionPerformed(evt);
-            }
-        });
-        jPanel10.add(jButton8);
-
-        jButton9.setText("o");
-        jButton9.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton9.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton9ActionPerformed(evt);
-            }
-        });
-        jPanel10.add(jButton9);
-
-        jButton10.setText("o");
-        jButton10.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton10.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton10ActionPerformed(evt);
-            }
-        });
-        jPanel10.add(jButton10);
-
-        jPanel37.add(jPanel10, java.awt.BorderLayout.SOUTH);
-
-        jPanel12.add(jPanel37);
-
-        jPanel30.setBorder(javax.swing.BorderFactory.createTitledBorder("HD"));
-        jPanel30.setLayout(new java.awt.BorderLayout());
-        jPanel30.add(camera1Label, java.awt.BorderLayout.CENTER);
-
-        jPanel11.setLayout(new java.awt.GridLayout(1, 0));
-
-        jButton11.setText("o");
-        jButton11.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton11.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton11ActionPerformed(evt);
-            }
-        });
-        jPanel11.add(jButton11);
-
-        jButton12.setText("o");
-        jButton12.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton12.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton12ActionPerformed(evt);
-            }
-        });
-        jPanel11.add(jButton12);
-
-        jButton13.setText("o");
-        jButton13.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton13.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton13ActionPerformed(evt);
-            }
-        });
-        jPanel11.add(jButton13);
-
-        jButton14.setText("o");
-        jButton14.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton14.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton14ActionPerformed(evt);
-            }
-        });
-        jPanel11.add(jButton14);
-
-        jButton15.setText("o");
-        jButton15.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton15.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton15ActionPerformed(evt);
-            }
-        });
-        jPanel11.add(jButton15);
-
-        jPanel30.add(jPanel11, java.awt.BorderLayout.SOUTH);
-
-        jPanel12.add(jPanel30);
-
-        jPanel13.setBorder(javax.swing.BorderFactory.createTitledBorder("Slides"));
-        jPanel13.setLayout(new java.awt.BorderLayout());
-        jPanel13.add(slidesLabel, java.awt.BorderLayout.CENTER);
-
-        jPanel14.setLayout(new java.awt.GridLayout(1, 0));
-
-        jButton16.setText("blank");
-        jButton16.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.RAISED));
-        jButton16.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton16ActionPerformed(evt);
-            }
-        });
-        jPanel14.add(jButton16);
-
-        jPanel13.add(jPanel14, java.awt.BorderLayout.SOUTH);
-
-        jPanel12.add(jPanel13);
-
-        jScrollPane1.setViewportView(jPanel12);
-
-        jPanel23.add(jScrollPane1, java.awt.BorderLayout.CENTER);
-
-        jPanel16.add(jPanel23, java.awt.BorderLayout.CENTER);
-
-        jPanel28.setLayout(new java.awt.BorderLayout());
-        jPanel16.add(jPanel28, java.awt.BorderLayout.SOUTH);
-
-        jSplitPane1.setLeftComponent(jPanel16);
-
         jPanel1.setLayout(new java.awt.BorderLayout());
+        jSplitPane1.setLeftComponent(jPanel1);
 
-        jLabel16.setText("Service Section:");
-        jLabel16.setToolTipText("Sets transition duration defaults.");
-        jPanel24.add(jLabel16);
+        jPanel2.setLayout(new java.awt.BorderLayout());
 
-        jButton1.setText("Worship Set");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
+        jPanel6.setLayout(new java.awt.BorderLayout());
+
+        pickerPanel.setLayout(new java.awt.GridLayout(0, 1, 0, 2));
+        jPanel6.add(pickerPanel, java.awt.BorderLayout.NORTH);
+
+        jPanel2.add(jPanel6, java.awt.BorderLayout.WEST);
+
+        jPanel7.setLayout(new java.awt.BorderLayout());
+
+        jPanel3.setLayout(new javax.swing.BoxLayout(jPanel3, javax.swing.BoxLayout.PAGE_AXIS));
+
+        jPanel9.setBorder(javax.swing.BorderFactory.createTitledBorder("Scenes with no audio"));
+
+        welcomeButton.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        welcomeButton.setText("Hi");
+        welcomeButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
+                welcomeButtonActionPerformed(evt);
             }
         });
-        jPanel24.add(jButton1);
+        jPanel9.add(welcomeButton);
 
-        jButton2.setText("Announcements");
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
+        welcomeButton2.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        welcomeButton2.setText("Slides");
+        welcomeButton2.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2ActionPerformed(evt);
+                welcomeButton2ActionPerformed(evt);
             }
         });
-        jPanel24.add(jButton2);
+        jPanel9.add(welcomeButton2);
 
-        jButton3.setText("Sermon");
-        jButton3.addActionListener(new java.awt.event.ActionListener() {
+        welcomeButton1.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        welcomeButton1.setForeground(new java.awt.Color(0, 102, 204));
+        welcomeButton1.setText("BRB");
+        welcomeButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton3ActionPerformed(evt);
+                welcomeButton1ActionPerformed(evt);
             }
         });
-        jPanel24.add(jButton3);
+        jPanel9.add(welcomeButton1);
 
-        jPanel1.add(jPanel24, java.awt.BorderLayout.NORTH);
-
-        jPanel3.setLayout(new java.awt.BorderLayout());
-
-        jLabel17.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
-        jLabel17.setText("Current Scene:");
-        jPanel34.add(jLabel17);
-        jPanel34.add(currentSceneLabel);
-
-        jLabel7.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
-        jLabel7.setText("Current Overlay:");
-        jPanel34.add(jLabel7);
-        jPanel34.add(currentOverlayLabel);
-
-        jPanel3.add(jPanel34, java.awt.BorderLayout.SOUTH);
-
-        jPanel36.setLayout(new java.awt.GridLayout(0, 1));
-
-        jPanel29.setLayout(new java.awt.BorderLayout());
-
-        sdCam2Button.setText("SD Cam2");
-        sdCam2Button.addActionListener(new java.awt.event.ActionListener() {
+        goodByeButton.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        goodByeButton.setForeground(new java.awt.Color(204, 0, 51));
+        goodByeButton.setText("Bye");
+        goodByeButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                sdCam2ButtonActionPerformed(evt);
+                goodByeButtonActionPerformed(evt);
             }
         });
-        jPanel38.add(sdCam2Button);
-        jPanel38.add(filler2);
+        jPanel9.add(goodByeButton);
 
-        genHdButton.setText("ZO");
-        genHdButton.addActionListener(new java.awt.event.ActionListener() {
+        jPanel12.add(jPanel9);
+
+        jPanel3.add(jPanel12);
+
+        jPanel8.setBorder(javax.swing.BorderFactory.createTitledBorder("Slides:"));
+
+        jPanel45.setLayout(new java.awt.GridLayout(0, 1, 0, 7));
+
+        jButton5.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jButton5.setText("Blank");
+        jButton5.setToolTipText("Mark a slide as blank.");
+        jButton5.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButtonActionPerformed(evt);
+                jButton5ActionPerformed(evt);
             }
         });
-        jPanel38.add(genHdButton);
-        jPanel38.add(filler1);
+        jPanel45.add(jButton5);
 
-        genHdButtonTight.setText("Tight");
-        genHdButtonTight.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButtonTightActionPerformed(evt);
-            }
-        });
-        jPanel38.add(genHdButtonTight);
-
-        jPanel29.add(jPanel38, java.awt.BorderLayout.NORTH);
-
-        jPanel27.setLayout(new java.awt.GridLayout(1, 0));
-
-        genHdButton4.setText("4");
-        genHdButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButton4ActionPerformed(evt);
-            }
-        });
-        jPanel27.add(genHdButton4);
-
-        genHdButton45.setText("4.5");
-        genHdButton45.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButton45ActionPerformed(evt);
-            }
-        });
-        jPanel27.add(genHdButton45);
-
-        genHdButton5.setText("5");
-        genHdButton5.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButton5ActionPerformed(evt);
-            }
-        });
-        jPanel27.add(genHdButton5);
-
-        genHdButton55.setText("5.5");
-        genHdButton55.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButton55ActionPerformed(evt);
-            }
-        });
-        jPanel27.add(genHdButton55);
-
-        genHdButton6.setText("6");
-        genHdButton6.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genHdButton6ActionPerformed(evt);
-            }
-        });
-        jPanel27.add(genHdButton6);
-
-        jPanel42.add(jPanel27);
-
-        jPanel29.add(jPanel42, java.awt.BorderLayout.PAGE_END);
-
-        jPanel36.add(jPanel29);
-
-        jPanel35.setLayout(new java.awt.BorderLayout());
-
-        genSdButton.setText("ZO");
-        genSdButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genSdButtonActionPerformed(evt);
-            }
-        });
-        jPanel40.add(genSdButton);
-
-        jPanel35.add(jPanel40, java.awt.BorderLayout.PAGE_START);
-
-        jPanel39.setLayout(new java.awt.GridLayout(1, 0));
-
-        genSdButton4.setText("4");
-        genSdButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genSdButton4ActionPerformed(evt);
-            }
-        });
-        jPanel39.add(genSdButton4);
-
-        genSdButton5.setText("5");
-        genSdButton5.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genSdButton5ActionPerformed(evt);
-            }
-        });
-        jPanel39.add(genSdButton5);
-
-        genSdButton6.setText("6");
-        genSdButton6.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                genSdButton6ActionPerformed(evt);
-            }
-        });
-        jPanel39.add(genSdButton6);
-
-        jPanel41.add(jPanel39);
-
-        jPanel35.add(jPanel41, java.awt.BorderLayout.CENTER);
-
-        jPanel36.add(jPanel35);
-
-        jPanel3.add(jPanel36, java.awt.BorderLayout.CENTER);
-
+        jButton4.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
         jButton4.setText("Auto");
         jButton4.setToolTipText("Auto Switch To New Slides");
         jButton4.addActionListener(new java.awt.event.ActionListener() {
@@ -1086,7 +556,9 @@ public class ObsAutomation extends javax.swing.JFrame {
                 jButton4ActionPerformed(evt);
             }
         });
-        jPanel9.add(jButton4);
+        jPanel45.add(jButton4);
+
+        jPanel8.add(jPanel45);
 
         slidesPanel.setBackground(new java.awt.Color(51, 153, 0));
         slidesPanel.setOpaque(false);
@@ -1100,10 +572,16 @@ public class ObsAutomation extends javax.swing.JFrame {
         });
         slidesPanel.add(fullSlidesButton);
 
-        jPanel9.add(slidesPanel);
+        jPanel8.add(slidesPanel);
+
+        jPanel10.add(jPanel8);
+
+        jPanel3.add(jPanel10);
 
         jPanel33.setBorder(javax.swing.BorderFactory.createTitledBorder("Switch Overlay:"));
-        jPanel33.setLayout(new java.awt.GridLayout(0, 1));
+        jPanel33.setLayout(new java.awt.BorderLayout());
+
+        jPanel4.setLayout(new java.awt.GridLayout(0, 1));
 
         overlaySwitchButton.setText("Slide Combo");
         overlaySwitchButton.setToolTipText("Slide Combo");
@@ -1112,7 +590,7 @@ public class ObsAutomation extends javax.swing.JFrame {
                 overlaySwitchButtonActionPerformed(evt);
             }
         });
-        jPanel33.add(overlaySwitchButton);
+        jPanel4.add(overlaySwitchButton);
 
         overlaySwitchButton1.setText("No Slides");
         overlaySwitchButton1.setToolTipText("No Slides");
@@ -1121,269 +599,281 @@ public class ObsAutomation extends javax.swing.JFrame {
                 overlaySwitchButton1ActionPerformed(evt);
             }
         });
-        jPanel33.add(overlaySwitchButton1);
+        jPanel4.add(overlaySwitchButton1);
 
-        jPanel31.add(jPanel33);
+        jPanel33.add(jPanel4, java.awt.BorderLayout.CENTER);
 
-        jPanel9.add(jPanel31);
-
-        jPanel3.add(jPanel9, java.awt.BorderLayout.PAGE_START);
-
-        jPanel1.add(jPanel3, java.awt.BorderLayout.SOUTH);
-
+        jPanel5.setBorder(javax.swing.BorderFactory.createTitledBorder("Current:"));
         jPanel5.setLayout(new java.awt.BorderLayout());
+        jPanel5.add(currentOverlayLabel, java.awt.BorderLayout.CENTER);
+        jPanel5.add(filler2, java.awt.BorderLayout.PAGE_START);
 
-        jPanel2.setBorder(javax.swing.BorderFactory.createTitledBorder("Scenes with no audio"));
+        jPanel33.add(jPanel5, java.awt.BorderLayout.EAST);
 
-        welcomeButton.setText("Hi");
-        welcomeButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                welcomeButtonActionPerformed(evt);
+        jPanel11.add(jPanel33);
+
+        jPanel3.add(jPanel11);
+
+        jPanel23.setLayout(new java.awt.BorderLayout());
+
+        jPanel13.setLayout(new java.awt.BorderLayout());
+
+        jPanel14.setLayout(new java.awt.GridLayout(0, 1));
+
+        fadeSlider.setMajorTickSpacing(1000);
+        fadeSlider.setMaximum(3000);
+        fadeSlider.setMinimum(100);
+        fadeSlider.setPaintTicks(true);
+        fadeSlider.setToolTipText("");
+        fadeSlider.setValue(1500);
+        fadeSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                fadeSliderStateChanged(evt);
             }
         });
-        jPanel2.add(welcomeButton);
+        jPanel14.add(fadeSlider);
 
-        welcomeButton2.setText("Slides");
-        welcomeButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                welcomeButton2ActionPerformed(evt);
+        moveSlider.setMajorTickSpacing(1000);
+        moveSlider.setMaximum(15000);
+        moveSlider.setMinimum(1500);
+        moveSlider.setPaintTicks(true);
+        moveSlider.setToolTipText("");
+        moveSlider.setValue(5000);
+        moveSlider.addChangeListener(new javax.swing.event.ChangeListener() {
+            public void stateChanged(javax.swing.event.ChangeEvent evt) {
+                moveSliderStateChanged(evt);
             }
         });
-        jPanel2.add(welcomeButton2);
+        jPanel14.add(moveSlider);
 
-        welcomeButton1.setForeground(new java.awt.Color(0, 102, 204));
-        welcomeButton1.setText("BRB");
-        welcomeButton1.addActionListener(new java.awt.event.ActionListener() {
+        jPanel13.add(jPanel14, java.awt.BorderLayout.CENTER);
+
+        jPanel16.setLayout(new java.awt.GridLayout(0, 1));
+
+        jPanel25.setLayout(new java.awt.GridLayout(0, 1));
+
+        jLabel2.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel2.setText("Fade Duration:");
+        jPanel25.add(jLabel2);
+
+        fadeLabel.setText("jLabel1");
+        jPanel25.add(fadeLabel);
+
+        jPanel16.add(jPanel25);
+
+        jPanel26.setLayout(new java.awt.GridLayout(0, 1));
+
+        jLabel3.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel3.setText("Move Duration:");
+        jPanel26.add(jLabel3);
+
+        moveLabel.setText("jLabel5");
+        jPanel26.add(moveLabel);
+
+        jPanel16.add(jPanel26);
+
+        jPanel13.add(jPanel16, java.awt.BorderLayout.WEST);
+
+        jPanel23.add(jPanel13, java.awt.BorderLayout.NORTH);
+
+        jPanel3.add(jPanel23);
+
+        jPanel19.setLayout(new java.awt.BorderLayout());
+
+        jPanel17.setLayout(new java.awt.GridLayout(0, 1, 0, 3));
+
+        streamPrepHelperLabel.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        streamPrepHelperLabel.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        streamPrepHelperLabel.setText("Stream Prep Helper (PRESS THIS FIRST):");
+        streamPrepHelperLabel.setToolTipText("Don't ask why, just do it!");
+        jPanel17.add(streamPrepHelperLabel);
+
+        jLabel17.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel17.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel17.setText("Set Scene to Start Worship Set:");
+        jPanel17.add(jLabel17);
+
+        jLabel6.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel6.setText("Countdown Timer (seconds):");
+        jPanel17.add(jLabel6);
+
+        jLabel7.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel7.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel7.setText("Start Countdown Worship Set:");
+        jPanel17.add(jLabel7);
+
+        jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jPanel17.add(jLabel8);
+
+        jLabel9.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel9.setText("Stream and Record:");
+        jPanel17.add(jLabel9);
+
+        jPanel19.add(jPanel17, java.awt.BorderLayout.WEST);
+
+        jPanel18.setLayout(new java.awt.GridLayout(0, 1, 0, 3));
+
+        prepHelperButton.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        prepHelperButton.setText("Helper");
+        prepHelperButton.setToolTipText("<html><body>Switch to studio mode and back (fixes elgato audio problems)<br/>Open YouTube Studio<br/>");
+        prepHelperButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                welcomeButton1ActionPerformed(evt);
+                prepHelperButtonActionPerformed(evt);
             }
         });
-        jPanel2.add(welcomeButton1);
+        jPanel18.add(prepHelperButton);
 
-        goodByeButton.setForeground(new java.awt.Color(204, 0, 51));
-        goodByeButton.setText("Bye");
-        goodByeButton.addActionListener(new java.awt.event.ActionListener() {
+        jButton1.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jButton1.setText("Set");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                goodByeButtonActionPerformed(evt);
+                jButton1ActionPerformed(evt);
             }
         });
-        jPanel2.add(goodByeButton);
+        jPanel18.add(jButton1);
 
-        jPanel5.add(jPanel2, java.awt.BorderLayout.SOUTH);
+        worshipCountdownTimer.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        worshipCountdownTimer.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
+        worshipCountdownTimer.setText("120");
+        jPanel18.add(worshipCountdownTimer);
 
-        jPanel6.setLayout(new java.awt.BorderLayout());
-
-        jPanel15.setBorder(javax.swing.BorderFactory.createTitledBorder("Lower Thirds Toggles (Hotkey Enabled)"));
-
-        oneButton.setText("Pastor");
-        oneButton.addActionListener(new java.awt.event.ActionListener() {
+        startCountdownButton.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        startCountdownButton.setText("Start");
+        startCountdownButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                oneButtonActionPerformed(evt);
+                startCountdownButtonActionPerformed(evt);
             }
         });
-        jPanel15.add(oneButton);
+        jPanel18.add(startCountdownButton);
 
-        twoButton.setText("CREF");
-        twoButton.addActionListener(new java.awt.event.ActionListener() {
+        jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jPanel18.add(jLabel16);
+
+        startStreamButton.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        startStreamButton.setText("Start");
+        startStreamButton.setEnabled(false);
+        startStreamButton.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                twoButtonActionPerformed(evt);
+                startStreamButtonActionPerformed(evt);
             }
         });
-        jPanel15.add(twoButton);
+        jPanel18.add(startStreamButton);
 
-        jPanel6.add(jPanel15, java.awt.BorderLayout.SOUTH);
+        jPanel19.add(jPanel18, java.awt.BorderLayout.EAST);
 
-        jPanel5.add(jPanel6, java.awt.BorderLayout.CENTER);
+        jPanel24.add(jPanel19);
 
-        jPanel1.add(jPanel5, java.awt.BorderLayout.CENTER);
+        jPanel3.add(jPanel24);
 
-        jSplitPane1.setRightComponent(jPanel1);
+        jPanel7.add(jPanel3, java.awt.BorderLayout.CENTER);
+
+        jPanel2.add(jPanel7, java.awt.BorderLayout.CENTER);
+
+        jSplitPane1.setRightComponent(jPanel2);
 
         getContentPane().add(jSplitPane1, java.awt.BorderLayout.CENTER);
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    long lastTransitionTime = 0l;
     private SlideState slideState = SlideState.NO_SLIDE;
-
-    private void transition(CamEnum scene) {
-        currentScene = scene;
-        if (!Slides.getInstance().equals(scene)) {
-            lastCamRecommendation = scene;
+    private void overlaySwitchButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_overlaySwitchButtonActionPerformed
+        if (!SlideState.SLIDE_COMBO.equals(slideState)) {
+            setSlideState(SlideState.SLIDE_COMBO);
+        } else {
+//            try {
+//                int index = firstSlotCamOverlays.indexOf(firstSlotCurrentOverlay);
+//                if (index >= firstSlotSlideOverlays.size()) {
+//                    index = firstSlotSlideOverlays.size() - 1;
+//                }
+//                firstSlotCurrentOverlay = firstSlotSlideOverlays.get(index);
+//                Point p = sceneToMidpointMap.get(currentScene);
+//
+//                determinePotentialScene(p.x, p.y, firstSlotOverlayMap.get(firstSlotCurrentOverlay));
+//                changeToScene(potentialScene);
+//            } catch (Exception e) {
+//                System.out.println(e.getMessage());
+//            }
         }
-        System.out.println("Transition to " + scene + " : " + getSlideState());
-        transition(getSlideState().getTransition().go(scene));
+    }//GEN-LAST:event_overlaySwitchButtonActionPerformed
+
+    private void overlaySwitchButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_overlaySwitchButton1ActionPerformed
+        if (!SlideState.NO_SLIDE.equals(slideState)) {
+            setSlideState(SlideState.NO_SLIDE);
+            slideSwitchOffTime = 0;
+        } else {
+//            try {
+//                int index = firstSlotSlideOverlays.indexOf(firstSlotCurrentOverlay);
+//                if (index >= firstSlotCamOverlays.size()) {
+//                    index = firstSlotCamOverlays.size() - 1;
+//                }
+//                firstSlotCurrentOverlay = firstSlotCamOverlays.get(index);
+//                Point p = sceneToMidpointMap.get(currentScene);
+//
+//                determinePotentialScene(p.x, p.y, firstSlotOverlayMap.get(firstSlotCurrentOverlay));
+//                changeToScene(potentialScene);
+//            } catch (Exception e) {
+//                System.out.println(e.getMessage());
+//            }
+        }
+    }//GEN-LAST:event_overlaySwitchButton1ActionPerformed
+    boolean cancelAutoSlideSwitch = true;
+    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
+        cancelAutoSlideSwitch = !cancelAutoSlideSwitch;
+        if (cancelAutoSlideSwitch) {
+            jButton4.setForeground(Color.RED);
+        } else {
+            jButton4.setForeground(Color.GREEN);
+        }
+    }//GEN-LAST:event_jButton4ActionPerformed
+
+    private void cancelAutoSlideSwitch() {
+        if (!cancelAutoSlideSwitch) {
+            cancelAutoSlideSwitch = true;
+            jButton4.setForeground(Color.RED);
+        }
     }
-
-    private String currentSceneString = "";
-
-    public void transition(String scene) {
-        transition(scene, null, -1);
-    }
-
-    public void transition(String scene, String paramTransition, int paramDuration) {
-//        System.out.println("    In transition? " + inTransition);
-        if (inTransition) {
-            return;
-        }
-        if (getCurrentSceneString().equals(scene)) {
-            return;//do nothing, we're already there
-        }
-        Notifier.getInstance().setTransition(true);
-//        System.out.println("          ~Entering transition.");
-        System.out.println("Transition to Scene: " + scene);
-
-        Thread captureThread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                if (!cancelAutoPilot) {
-                    BufferedImage bi = r.createScreenCapture(new Rectangle(0, 0, 960, 520));
-                    Graphics2D g2d = (Graphics2D) bi.getGraphics();
-                    g2d.setColor(Color.RED);
-                    g2d.drawString(currentSceneString, 150, 20);
-                    File outputFile = new File("D:\\Dustin\\OBS Images\\" + System.currentTimeMillis() + ".png");
-                    try {
-                        ImageIO.write(bi, "PNG", outputFile);
-                    } catch (IOException ex) {
-                        Logger.getLogger(ImageCreator.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
-        });
-        captureThread.start();
-
-        int duration = serviceSectionState.getFadeDelay();
-        try {
-            duration = Integer.valueOf(fadeDelayField.getText());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        String transition = "Fade";
-        if (getCurrentSceneString() != null) {
-            if (getCurrentSceneString().equals(scene)) {
-                duration = 100;
-            } else {
-                List<String> list = sceneMoveTransitionMap.get(getCurrentSceneString());
-                if (list != null) {
-                    if (list.contains(scene)) {
-                        transition = "Slow Move";
-                        duration = serviceSectionState.getMoveDelay();
-                        try {
-                            duration = Integer.valueOf(moveDelaySpinner.getText());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }
-            }
-        }
-
-        lastTransitionTime = System.currentTimeMillis() + duration;
-        if (paramDuration > 0) {
-            duration = paramDuration;
-        }
-        if (paramTransition != null) {
-            transition = paramTransition;
-        }
-        controller.setTransitionDuration(duration, responseCallback);
-        controller.changeSceneWithTransition(scene, transition, callback);
-        final int finalDuration = duration;
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-//                    System.out.println("          ~Waiting for transition to end for (ms): " + finalDuration);
-                    Thread.sleep(finalDuration);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                Notifier.getInstance().setTransition(false);
-//                System.out.println("          ~Out of transition.");
-//                System.out.println("ReEnable Buttons?");
-            }
-        });
-        t.start();
-
-        setCurrentSceneString(scene);
-    }
-
-    private void welcomeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeButtonActionPerformed
-        transition("Intro (No Audio Broadcast)");
-    }//GEN-LAST:event_welcomeButtonActionPerformed
-
-    private void goodByeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_goodByeButtonActionPerformed
-        cancelAutoPilot();
-        cancelAutoSlideSwitch = true;
-        transition("Ending (No Audio Broadcast)", "Cut", 100);
-    }//GEN-LAST:event_goodByeButtonActionPerformed
 
     private void fullSlidesButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fullSlidesButtonActionPerformed
-        transition(Slides.getInstance());
-//        if (SlideState.NO_SLIDE.equals(slideState)) {
-//            overlaySwitchButton.doClick();
-//        }
+        changeToScene("Slides With Overlay");
         slidesPanel.setOpaque(false);
     }//GEN-LAST:event_fullSlidesButtonActionPerformed
 
-    private void oneButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_oneButtonActionPerformed
-//        r.keyPress(KeyEvent.VK_ALT);
-//        r.keyPress(KeyEvent.VK_TAB);
-//        r.keyRelease(KeyEvent.VK_TAB);
-//        r.keyRelease(KeyEvent.VK_ALT);
+    private void formWindowLostFocus(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowLostFocus
+        if (!cancelAutoSlideSwitch) {
+            cancelAutoSlideSwitch();
+        }
+    }//GEN-LAST:event_formWindowLostFocus
 
-        r.mouseMove(10, 100);
-        r.mousePress(MouseEvent.BUTTON1_MASK);
-        r.mouseRelease(MouseEvent.BUTTON1_MASK);
+    private void welcomeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeButtonActionPerformed
+        changeToScene("Intro (No Audio Broadcast)");
+    }//GEN-LAST:event_welcomeButtonActionPerformed
 
-        r.delay(500);
+    private void welcomeButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeButton2ActionPerformed
+        changeToScene("Slides (No Audio Broadcast)");
+    }//GEN-LAST:event_welcomeButton2ActionPerformed
 
-        r.keyPress(KeyEvent.VK_CONTROL);
-        r.keyPress(KeyEvent.VK_NUMPAD1);
-        r.keyRelease(KeyEvent.VK_NUMPAD1);
-        r.keyRelease(KeyEvent.VK_CONTROL);
+    private void welcomeButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeButton1ActionPerformed
+        changeToScene("For CREF Only (No Audio Broadcast)");
+    }//GEN-LAST:event_welcomeButton1ActionPerformed
 
-        r.delay(500);
+    private void goodByeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_goodByeButtonActionPerformed
+        cancelAutoSlideSwitch();
+        changeToScene("Ending (No Audio Broadcast)");
+    }//GEN-LAST:event_goodByeButtonActionPerformed
 
-        r.keyPress(KeyEvent.VK_ALT);
-        r.keyPress(KeyEvent.VK_TAB);
-        r.keyRelease(KeyEvent.VK_TAB);
-        r.keyRelease(KeyEvent.VK_ALT);
+    private void helperDialogWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_helperDialogWindowClosing
+        requestFocus();
+    }//GEN-LAST:event_helperDialogWindowClosing
 
-        Point p = ((JButton) evt.getSource()).getLocationOnScreen();
-        r.mouseMove(p.x, p.y);
-    }//GEN-LAST:event_oneButtonActionPerformed
-
-    private void twoButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_twoButtonActionPerformed
-//        r.keyPress(KeyEvent.VK_ALT);
-//        r.keyPress(KeyEvent.VK_TAB);
-//        r.keyRelease(KeyEvent.VK_TAB);
-//        r.keyRelease(KeyEvent.VK_ALT);
-
-        r.mouseMove(10, 100);
-        r.mousePress(MouseEvent.BUTTON1_MASK);
-        r.mouseRelease(MouseEvent.BUTTON1_MASK);
-
-        r.delay(500);
-
-        r.keyPress(KeyEvent.VK_CONTROL);
-        r.keyPress(KeyEvent.VK_NUMPAD2);
-        r.keyRelease(KeyEvent.VK_NUMPAD2);
-        r.keyRelease(KeyEvent.VK_CONTROL);
-
-        r.delay(500);
-
-        r.keyPress(KeyEvent.VK_ALT);
-        r.keyPress(KeyEvent.VK_TAB);
-        r.keyRelease(KeyEvent.VK_TAB);
-        r.keyRelease(KeyEvent.VK_ALT);
-
-        Point p = ((JButton) evt.getSource()).getLocationOnScreen();
-        r.mouseMove(p.x, p.y);
-    }//GEN-LAST:event_twoButtonActionPerformed
+    private void countDownCancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_countDownCancelButtonActionPerformed
+        cancelWorshipSetTimer = true;
+    }//GEN-LAST:event_countDownCancelButtonActionPerformed
 
     private void prepHelperButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_prepHelperButtonActionPerformed
+        prepHelperButton.setVisible(false);
         System.out.println("Switch to Studio Mode and Back");
         Callback<SetStudioModeEnabledResponse> cb = new Callback<SetStudioModeEnabledResponse>() {
             @Override
@@ -1397,7 +887,7 @@ public class ObsAutomation extends javax.swing.JFrame {
         try {
             Thread.sleep(500);
         } catch (InterruptedException ex) {
-            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+            ex.printStackTrace();
         }
         controller.setStudioModeEnabled(true, cb);
 
@@ -1410,10 +900,14 @@ public class ObsAutomation extends javax.swing.JFrame {
         startStreamButton.setEnabled(true);
     }//GEN-LAST:event_prepHelperButtonActionPerformed
 
-    boolean cancelWorshipSetTimer = true;
-    int worshipSetTimerLength = 0;
-
     private void startCountdownButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startCountdownButtonActionPerformed
+        jLabel15.setText(firstSceneLabel.replaceAll(Pattern.quote("<%SCENE%>"), firstScene));
+
+        firstSlotPanel.setInitialScene(firstScene);
+        thirdSlotPanel.setInitialScene(firstScene);
+        fourthSlotPanel.setInitialScene(firstScene);
+        SlotPanel.setShowInitialScene(true);
+
         startCountdownButton.setEnabled(false);
         worshipSetCountDownDialog.setVisible(true);
         worshipSetCountDownDialog.pack();
@@ -1435,7 +929,7 @@ public class ObsAutomation extends javax.swing.JFrame {
                         try {
                             Thread.sleep(1000);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
                         }
                         SwingUtilities.invokeLater(new Runnable() {
                             @Override
@@ -1447,7 +941,7 @@ public class ObsAutomation extends javax.swing.JFrame {
                         try {
                             Thread.sleep(500);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
                         }
                     }
                 }
@@ -1468,47 +962,41 @@ public class ObsAutomation extends javax.swing.JFrame {
                         try {
                             Thread.sleep(990);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
                         }
                         if (cancelWorshipSetTimer) {
                             break;
                         }
                     }
 
+                    SlotPanel.setShowInitialScene(false);
                     worshipSetCountDownDialog.setVisible(false);
                     startCountdownButton.setEnabled(true);
 
                     if (!cancelWorshipSetTimer) {
-                        transition("Slides With Overlay", "Cut", 500);
+                        controller.setTransitionDuration(500, responseCallback);
+                        controller.changeSceneWithTransition("Slides With Overlay", "Cut", callback);
                         try {
                             Thread.sleep(600);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
                         }
 
                         setSlideState(SlideState.NO_SLIDE);
-                        transition(MainCamEnum.WIDE);
+                        controller.setTransitionDuration(1500, responseCallback);
+                        System.out.println(firstScene);
+                        controller.changeSceneWithTransition(firstScene, "Fade", callback);
 
                         try {
                             Thread.sleep(2000);
                         } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+                            ex.printStackTrace();
                         }
-
-                        twoButton.doClick();
-                        twoButton.setEnabled(false);
-                        try {
-                            Thread.sleep(10000);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-
-                        twoButton.setEnabled(true);
-                        twoButton.doClick();
                     }
                 }
             });
             t.start();
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -1561,942 +1049,96 @@ public class ObsAutomation extends javax.swing.JFrame {
         startStreamButton.setEnabled(true);
     }//GEN-LAST:event_startStreamButtonActionPerformed
 
-    private void countDownCancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_countDownCancelButtonActionPerformed
-        cancelWorshipSetTimer = true;
-    }//GEN-LAST:event_countDownCancelButtonActionPerformed
+    private void fadeSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_fadeSliderStateChanged
+        fadeLabel.setText(fadeSlider.getValue() + " ms");
+    }//GEN-LAST:event_fadeSliderStateChanged
 
-    boolean cancelAutoPilot = true;
+    private void moveSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_moveSliderStateChanged
+        moveLabel.setText(moveSlider.getValue() + " ms");
+    }//GEN-LAST:event_moveSliderStateChanged
 
-    BufferedImage sixD;
-    BufferedImage sixDLabel;
-    BufferedImage sixDPrev = null;
-
-    BufferedImage camera1;
-    BufferedImage camera1Lbl;
-    BufferedImage camera1Prev = null;
-
-    int cam1X = 50;
-    int cam1Y = 280;
-    int cam1W = 211;
-    int cam1H = 110;
-
-    int cam1X4 = 20;
-    int cam1Y4 = 70;
-    int cam1W4 = 10;
-    int cam1H4 = 10;
-
-    int cam1X4_5 = 50;
-    int cam1Y4_5 = cam1Y4;
-    int cam1W4_5 = 20;
-    int cam1H4_5 = 10;
-
-    int cam1X5 = 90;
-    int cam1Y5 = cam1Y4;
-    int cam1W5 = 30;
-    int cam1H5 = 10;
-
-    int cam1X5_5 = 140;
-    int cam1Y5_5 = cam1Y4;
-    int cam1W5_5 = 20;
-    int cam1H5_5 = 10;
-
-    int cam1X6 = 180;
-    int cam1Y6 = cam1Y4;
-    int cam1W6 = 10;
-    int cam1H6 = 10;
-
-    int sdXL = 0;
-    int sdYL = 40;
-    int sdWL = 34;
-    int sdHL = 20;
-
-    int sdX4 = sdXL + sdWL + 10;
-    int sdY4 = sdYL;
-    int sdW4 = sdWL;
-    int sdH4 = sdHL;
-
-    int sdX5 = sdX4 + sdW4 + 10;
-    int sdY5 = sdYL;
-    int sdW5 = sdWL;
-    int sdH5 = sdHL;
-
-    int sdX6 = sdX5 + sdW5 + 10;
-    int sdY6 = sdYL;
-    int sdW6 = sdWL;
-    int sdH6 = sdHL;
-
-    int sdXR = sdX6 + sdW6 + 5;
-    int sdYR = sdYL;
-    int sdWR = sdWL - 5;
-    int sdHR = sdHL;
-
-    BufferedImage sdLImage = null;
-    boolean saveSdLImage = false;
-
-    BufferedImage sd4Image = null;
-    boolean saveSd4Image = false;
-
-    BufferedImage sd5Image = null;
-    boolean saveSd5Image = false;
-
-    BufferedImage sd6Image = null;
-    boolean saveSd6Image = false;
-
-    BufferedImage sdRImage = null;
-    boolean saveSdRImage = false;
-
-    BufferedImage hd4Image = null;
-    boolean saveHd4Image = false;
-
-    BufferedImage hd4_5Image = null;
-    boolean saveHd4_5Image = false;
-
-    BufferedImage hd5Image = null;
-    boolean saveHd5Image = false;
-
-    BufferedImage hd5_5Image = null;
-    boolean saveHd5_5Image = false;
-
-    BufferedImage hd6Image = null;
-    boolean saveHd6Image = false;
-    private void autoPilotButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_autoPilotButtonActionPerformed
-        if (cancelAutoPilot) {
-            autoPilotButton.setForeground(Color.GREEN);
-            cancelAutoPilot = false;
-            Thread t = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while (!cancelAutoPilot) {
-                        int sensitivity = 60;
-                        try {
-                            sensitivity = Integer.valueOf(sensitivityField.getText());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                        if (sensitivity == 0) {
-                            sensitivity = 60;
-                        }
-                        sixD = r.createScreenCapture(new Rectangle(new Point(483, cam1Y), new Dimension(cam1W, cam1H)));
-                        sixDLabel = r.createScreenCapture(new Rectangle(new Point(483, cam1Y), new Dimension(cam1W, cam1H)));
-
-                        Graphics g = sixDLabel.getGraphics();
-                        g.setColor(Color.RED);
-                        g.drawRect(sdXL, sdYL, sdWL, sdHL);
-                        g.setColor(Color.YELLOW);
-                        g.drawRect(sdX4, sdY4, sdW4, sdH4);
-                        g.setColor(Color.GREEN);
-                        g.drawRect(sdX5, sdY5, sdW5, sdH5);
-                        g.setColor(Color.GRAY);
-                        g.drawRect(sdX6, sdY6, sdW6, sdH6);
-                        g.setColor(Color.RED);
-                        g.drawRect(sdXR, sdYR, sdWR, sdHR);
-
-                        if (sixDPrev != null) {
-                            int sdL = 0;
-                            if (saveSdLImage) {
-                                saveSdLImage = false;
-                                sdLImage = sixDPrev.getSubimage(sdXL, sdYL, sdWL, sdHL);
-                                jButton6.setIcon(new ImageIcon(sdLImage));
-                                jButton6.setText("");
-                            }
-                            if (sdLImage != null) {
-                                BufferedImage temp = sixD.getSubimage(sdXL, sdYL, sdWL, sdHL);
-                                sdL = countDifferences(temp, sdLImage, sensitivity);
-                            } else {
-                                for (int i = sdXL; i < sdWL + sdXL; i++) {
-                                    for (int j = sdYL; j < cam1H4 + sdYL; j++) {
-                                        if (isDifferent(sixD.getRGB(i, j), sixDPrev.getRGB(i, j), sensitivity)) {
-                                            sdL++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.RED);
-                            g.drawString(sdL + "", sdXL, sdYL);
-
-                            int sd4 = 0;
-                            if (saveSd4Image) {
-                                saveSd4Image = false;
-                                sd4Image = sixDPrev.getSubimage(sdX4, sdY4, sdW4, sdH4);
-                                jButton7.setIcon(new ImageIcon(sd4Image));
-                                jButton7.setText("");
-                            }
-                            if (sd4Image != null) {
-                                BufferedImage temp = sixD.getSubimage(sdX4, sdY4, sdW4, sdH4);
-                                sd4 = countDifferences(temp, sd4Image, sensitivity);
-                            } else {
-                                for (int i = sdX4; i < sdW4 + sdX4; i++) {
-                                    for (int j = sdY4; j < cam1H4 + sdY4; j++) {
-                                        if (isDifferent(sixD.getRGB(i, j), sixDPrev.getRGB(i, j), sensitivity)) {
-                                            sd4++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.YELLOW);
-                            g.drawString(sd4 + "", sdX4, sdY4);
-
-                            int sd5 = 0;
-                            if (saveSd5Image) {
-                                saveSd5Image = false;
-                                sd5Image = sixDPrev.getSubimage(sdX5, sdY5, sdW5, sdH5);
-                                jButton8.setIcon(new ImageIcon(sd5Image));
-                                jButton8.setText("");
-                            }
-                            if (sd5Image != null) {
-                                BufferedImage temp = sixD.getSubimage(sdX5, sdY5, sdW5, sdH5);
-                                sd5 = countDifferences(temp, sd5Image, sensitivity);
-                            } else {
-                                for (int i = sdX5; i < sdW5 + sdX5; i++) {
-                                    for (int j = sdY5; j < cam1H4 + sdY5; j++) {
-                                        if (isDifferent(sixD.getRGB(i, j), sixDPrev.getRGB(i, j), sensitivity)) {
-                                            sd5++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.GREEN);
-                            g.drawString(sd5 + "", sdX5, sdY5);
-
-                            int sd6 = 0;
-                            if (saveSd6Image) {
-                                saveSd6Image = false;
-                                sd6Image = sixDPrev.getSubimage(sdX6, sdY6, sdW6, sdH6);
-                                jButton9.setIcon(new ImageIcon(sd6Image));
-                                jButton9.setText("");
-                            }
-                            if (sd6Image != null) {
-                                BufferedImage temp = sixD.getSubimage(sdX6, sdY6, sdW6, sdH6);
-                                sd6 = countDifferences(temp, sd6Image, sensitivity);
-                            } else {
-                                for (int i = sdX6; i < sdW6 + sdX6; i++) {
-                                    for (int j = sdY6; j < cam1H4 + sdY6; j++) {
-                                        if (isDifferent(sixD.getRGB(i, j), sixDPrev.getRGB(i, j), sensitivity)) {
-                                            sd6++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.GRAY);
-                            g.drawString(sd6 + "", sdX6, sdY6);
-
-                            int sdR = 0;
-                            if (saveSdRImage) {
-                                saveSdRImage = false;
-                                sdRImage = sixDPrev.getSubimage(sdXR, sdYR, sdWR, sdHR);
-                                jButton10.setIcon(new ImageIcon(sdRImage));
-                                jButton10.setText("");
-                            }
-                            if (sdRImage != null) {
-                                BufferedImage temp = sixD.getSubimage(sdXR, sdYR, sdWR, sdHR);
-                                sdR = countDifferences(temp, sdRImage, sensitivity);
-                            } else {
-                                for (int i = sdXR; i < sdWR + sdXR; i++) {
-                                    for (int j = sdYR; j < cam1H4 + sdYR; j++) {
-                                        if (isDifferent(sixD.getRGB(i, j), sixDPrev.getRGB(i, j), sensitivity)) {
-                                            sdR++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.RED);
-                            g.drawString(sdR + "", sdXR, sdYR);
-
-                            analyzeSdCameraDifferencesAndMakeRecommendation(sdL, sd4, sd5, sd6, sdR);
-                        }
-
-                        sdCameraLabel.setIcon(new ImageIcon(sixDLabel));
-                        sixDPrev = sixD;
-
-                        camera1 = r.createScreenCapture(new Rectangle(new Point(cam1X, cam1Y), new Dimension(cam1W, cam1H)));
-                        camera1Lbl = r.createScreenCapture(new Rectangle(new Point(cam1X, cam1Y), new Dimension(cam1W, cam1H)));
-
-                        g = camera1Lbl.getGraphics();
-                        g.setColor(Color.RED);
-                        g.drawRect(cam1X4, cam1Y4, cam1W4, cam1H4);
-                        g.setColor(Color.YELLOW);
-                        g.drawRect(cam1X4_5, cam1Y4_5, cam1W4_5, cam1H4_5);
-                        g.setColor(Color.GREEN);
-                        g.drawRect(cam1X5, cam1Y5, cam1W5, cam1H5);
-                        g.setColor(Color.GRAY);
-                        g.drawRect(cam1X5_5, cam1Y5_5, cam1W5_5, cam1H5_5);
-                        g.setColor(Color.RED);
-                        g.drawRect(cam1X6, cam1Y6, cam1W6, cam1H6);
-
-                        if (camera1Prev != null) {
-                            int cam14 = 0;
-                            if (saveHd4Image) {
-                                saveHd4Image = false;
-                                hd4Image = camera1Prev.getSubimage(cam1X4, cam1Y4, cam1W4, cam1H4);
-                                jButton11.setIcon(new ImageIcon(hd4Image));
-                                jButton11.setText("");
-                            }
-                            if (hd4Image != null) {
-                                BufferedImage temp = camera1.getSubimage(cam1X4, cam1Y4, cam1W4, cam1H4);
-                                cam14 = countDifferences(temp, hd4Image, sensitivity);
-                            } else {
-                                for (int i = cam1X4; i < cam1W4 + cam1X4; i++) {
-                                    for (int j = cam1Y4; j < cam1H4 + cam1Y4; j++) {
-                                        if (isDifferent(camera1.getRGB(i, j), camera1Prev.getRGB(i, j), sensitivity)) {
-                                            cam14++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.RED);
-                            g.drawString(cam14 + "", cam1X4, cam1Y4);
-
-                            int cam14_5 = 0;
-                            if (saveHd4_5Image) {
-                                saveHd4_5Image = false;
-                                hd4_5Image = camera1Prev.getSubimage(cam1X4_5, cam1Y4_5, cam1W4_5, cam1H4_5);
-                                jButton12.setIcon(new ImageIcon(hd4_5Image));
-                                jButton12.setText("");
-                            }
-                            if (hd4_5Image != null) {
-                                BufferedImage temp = camera1.getSubimage(cam1X4_5, cam1Y4_5, cam1W4_5, cam1H4_5);
-                                cam14_5 = countDifferences(temp, hd4_5Image, sensitivity);
-                            } else {
-                                for (int i = cam1X4_5; i < cam1W4_5 + cam1X4_5; i++) {
-                                    for (int j = cam1Y4_5; j < cam1H4_5 + cam1Y4_5; j++) {
-                                        if (isDifferent(camera1.getRGB(i, j), camera1Prev.getRGB(i, j), sensitivity)) {
-                                            cam14_5++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.YELLOW);
-                            g.drawString(cam14_5 + "", cam1X4_5, cam1Y4_5);
-
-                            int cam15 = 0;
-                            if (saveHd5Image) {
-                                saveHd5Image = false;
-                                hd5Image = camera1Prev.getSubimage(cam1X5, cam1Y5, cam1W5, cam1H5);
-                                jButton13.setIcon(new ImageIcon(hd5Image));
-                                jButton13.setText("");
-                            }
-                            if (hd5Image != null) {
-                                BufferedImage temp = camera1.getSubimage(cam1X5, cam1Y5, cam1W5, cam1H5);
-                                cam15 = countDifferences(temp, hd5Image, sensitivity);
-                            } else {
-                                for (int i = cam1X5; i < cam1W5 + cam1X5; i++) {
-                                    for (int j = cam1Y5; j < cam1H5 + cam1Y5; j++) {
-                                        if (isDifferent(camera1.getRGB(i, j), camera1Prev.getRGB(i, j), sensitivity)) {
-                                            cam15++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.GREEN);
-                            g.drawString(cam15 + "", cam1X5, cam1Y5);
-
-                            int cam15_5 = 0;
-                            if (saveHd5_5Image) {
-                                saveHd5_5Image = false;
-                                hd5_5Image = camera1Prev.getSubimage(cam1X5_5, cam1Y5_5, cam1W5_5, cam1H5_5);
-                                jButton14.setIcon(new ImageIcon(hd5_5Image));
-                                jButton14.setText("");
-                            }
-                            if (hd5_5Image != null) {
-                                BufferedImage temp = camera1.getSubimage(cam1X5_5, cam1Y5_5, cam1W5_5, cam1H5_5);
-                                cam15_5 = countDifferences(temp, hd5_5Image, sensitivity);
-                            } else {
-                                for (int i = cam1X5_5; i < cam1W5_5 + cam1X5_5; i++) {
-                                    for (int j = cam1Y5_5; j < cam1H5_5 + cam1Y5_5; j++) {
-                                        if (isDifferent(camera1.getRGB(i, j), camera1Prev.getRGB(i, j), sensitivity)) {
-                                            cam15_5++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.GRAY);
-                            g.drawString(cam15_5 + "", cam1X5_5, cam1Y5_5);
-
-                            int cam16 = 0;
-                            if (saveHd6Image) {
-                                saveHd6Image = false;
-                                hd6Image = camera1Prev.getSubimage(cam1X6, cam1Y6, cam1W6, cam1H6);
-                                jButton15.setIcon(new ImageIcon(hd6Image));
-                                jButton15.setText("");
-                            }
-                            if (hd6Image != null) {
-                                BufferedImage temp = camera1.getSubimage(cam1X6, cam1Y6, cam1W6, cam1H6);
-                                cam16 = countDifferences(temp, hd6Image, sensitivity);
-                            } else {
-                                for (int i = cam1X6; i < cam1W6 + cam1X6; i++) {
-                                    for (int j = cam1Y6; j < cam1H6 + cam1Y6; j++) {
-                                        if (isDifferent(camera1.getRGB(i, j), camera1Prev.getRGB(i, j), sensitivity)) {
-                                            cam16++;
-                                        }
-                                    }
-                                }
-                            }
-                            g.setColor(Color.RED);
-                            g.drawString(cam16 + "", cam1X6, cam1Y6);
-
-                            analyzeMainCameraDifferencesAndMakeRecommendation(cam14, cam14_5, cam15, cam15_5, cam16);
-                        }
-
-                        camera1Label.setIcon(new ImageIcon(camera1Lbl));
-                        camera1Prev = camera1;
-
-//                    makeDecision();
-                        try {
-                            Thread.sleep(500);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                    }
-                }
-
-            });
-            t.start();
-        } else {
-            cancelAutoPilot();
-        }
-    }//GEN-LAST:event_autoPilotButtonActionPerformed
-    private int countDifferences(BufferedImage temp, BufferedImage prev, int sensitivity) {
-        int diffCount = 0;
-        try {
-            for (int i = 0; i < temp.getWidth(); i++) {
-                for (int j = 0; j < temp.getHeight(); j++) {
-                    if (isDifferent(temp.getRGB(i, j), prev.getRGB(i, j), sensitivity)) {
-                        diffCount++;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            //do nothing.
-        }
-        return diffCount;
-    }
-
-//    private void makeDecision() {
-////        System.out.println(newSlideTime + 2000);
-////        System.out.println((newSlideTime + 2000) > System.currentTimeMillis());
-////        System.out.println(lastTransitionTime + 3000);
-////        System.out.println((lastTransitionTime + 3000) > System.currentTimeMillis());
-////        System.out.println(System.currentTimeMillis());
-////        if (newSlideTime + serviceSectionState.getFullScreenSlideTime() > System.currentTimeMillis()) {
-////            transition("Slides With Overlay");
-////        } else {
-//
-////            try {
-////                boolean sdSame = true;
-////                SdCamEnum sdDecision = sdCamRecommendation.get(0);
-////                for (int i = 1; i < sdCamRecommendation.size(); i++) {
-////                    SdCamEnum mce = sdCamRecommendation.get(i);
-////                    if (mce == null || !mce.equals(sdDecision)) {
-////                        sdSame = false;
-////                        break;
-////                    }
-////                }
-////
-////                if (sdSame) {
-////                    if (lastTransitionTime + serviceSectionState.getTransitionTime() < System.currentTimeMillis()) {
-////                        if (newSlideTime + serviceSectionState.getComboSlideScreenTime() > System.currentTimeMillis()) {
-////                            transition(sdDecision.getSlideSceneName());
-////                        } else {
-////                            transition(sdDecision.getSceneName());
-////                        }
-////                    }
-////                }
-////            } catch (Exception e) {
-////                e.printStackTrace();
-////            }
-//        try {
-//            boolean hdSame = true;
-//            MainCamEnum decision = mainCamRecommendation.get(0);
-//            for (int i = 1; i < mainCamRecommendation.size(); i++) {
-//                MainCamEnum mce = mainCamRecommendation.get(i);
-//                if (!mce.equals(decision)) {
-//                    hdSame = false;
-//                    break;
-//                }
-//            }
-//
-//            if (hdSame) {
-//                if (lastTransitionTime + 3000 < System.currentTimeMillis()) {
-//                    if (newSlideTime + 30000 > System.currentTimeMillis()) {
-//                        transition(decision.getSlideSceneName());
-//                    } else {
-//                        transition(decision.getSceneName());
-//                    }
-//                }
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-////        }
-//    }
-    List<ValuePair> sdCamList = new ArrayList<ValuePair>();
-    List<SdCamEnum> sdCamRecommendation = new ArrayList<SdCamEnum>();
-
-    private void analyzeSdCameraDifferencesAndMakeRecommendation(int sdL, int sd4, int sd5, int sd6, int sdR) {
-        sdCamList.clear();
-        sdCamList.add(new ValuePair("L", sdL));
-        sdCamList.add(new ValuePair("4", sd4));
-        sdCamList.add(new ValuePair("5", sd5));
-        sdCamList.add(new ValuePair("6", sd6));
-        sdCamList.add(new ValuePair("R", sdR));
-
-        sdCamList.sort(new Comparator<ValuePair>() {
-            @Override
-            public int compare(ValuePair t, ValuePair t1) {
-                return t.value - t1.value;
-            }
-        });
-
-        int i = 0;
-        for (; i < sdCamList.size(); i++) {
-            int diff = sdCamList.get(i).value;
-            if (diff > 0) {
-                break;
-            }
-        }
-
-        List<ValuePair> tempCamList = new ArrayList<ValuePair>();
-        for (; i < sdCamList.size(); i++) {
-            tempCamList.add(sdCamList.get(i));
-        }
-
-        String sections = "";
-        for (ValuePair vp : tempCamList) {
-            sections += vp.name;
-        }
-
-        if (sections.startsWith("R") || sections.startsWith("L")) {
-            sdCamRecommendation.add(0, null);
-            if (SdCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(lastMainCamRecommendation);
-            }
-        } else if (sections.length() > 3) {
-            sdCamRecommendation.add(0, SdCamEnum.WIDE);
-            lastSdCamRecommendation = SdCamEnum.WIDE;
-            if (SdCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(SdCamEnum.WIDE);
-            }
-        } else if (sections.startsWith("4")) {
-            sdCamRecommendation.add(0, SdCamEnum.FOUR);
-            lastSdCamRecommendation = SdCamEnum.FOUR;
-
-            if (SdCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(SdCamEnum.FOUR);
-            }
-        } else if (sections.startsWith("5")) {
-            sdCamRecommendation.add(0, SdCamEnum.FIVE);
-            lastSdCamRecommendation = SdCamEnum.FIVE;
-
-            if (SdCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(SdCamEnum.FIVE);
-            }
-        } else if (sections.startsWith("6")) {
-            sdCamRecommendation.add(0, SdCamEnum.SIX);
-            lastSdCamRecommendation = SdCamEnum.SIX;
-
-            if (SdCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(SdCamEnum.SIX);
-            }
-        } else {
-            sdCamRecommendation.add(0, null);
-//            if (SdCamEnum.contains(currentScene)) {
-//                Notifier.getInstance().notify(lastMainCamRecommendation);
-//            }
-        }
-
-        while (sdCamRecommendation.size() > 3) {
-            sdCamRecommendation.remove(sdCamRecommendation.size() - 1);
-        }
-    }
-
-    List<ValuePair> mainCamList = new ArrayList<ValuePair>();
-    List<MainCamEnum> mainCamRecommendation = new ArrayList<MainCamEnum>();
-
-    private void analyzeMainCameraDifferencesAndMakeRecommendation(int mainCamera1Difference, int mainCamera2Difference, int mainCamera3Difference, int mainCamera4Difference, int mainCamera5Difference) {
-        mainCamList.clear();
-        mainCamList.add(new ValuePair("1", mainCamera1Difference));
-        mainCamList.add(new ValuePair("2", mainCamera2Difference));
-        mainCamList.add(new ValuePair("3", mainCamera3Difference));
-        mainCamList.add(new ValuePair("4", mainCamera4Difference));
-        mainCamList.add(new ValuePair("5", mainCamera5Difference));
-
-        mainCamList.sort(new Comparator<ValuePair>() {
-            @Override
-            public int compare(ValuePair t, ValuePair t1) {
-                return t.value - t1.value;
-            }
-        });
-
-//        System.out.println(mainCamList.get(0) + "      " + mainCamList.get(mainCamList.size() - 1));
-        int i = 0;
-        for (; i < mainCamList.size(); i++) {
-            int diff = mainCamList.get(i).value;
-            if (diff > 0) {
-                break;
-            }
-        }
-
-        List<ValuePair> tempCamList = new ArrayList<ValuePair>();
-        for (; i < mainCamList.size(); i++) {
-//            System.out.print(mainCamList.get(i).name + " ");
-            if (mainCamList.get(i).value != 0) {
-                tempCamList.add(mainCamList.get(i));
-            }
-        }
-
-        tempCamList.sort(new Comparator<ValuePair>() {
-            @Override
-            public int compare(ValuePair t, ValuePair t1) {
-                return t.name.compareTo(t1.name);
-            }
-        });
-
-        if (tempCamList.size() > 3) {
-            mainCamRecommendation.add(MainCamEnum.WIDE);
-            lastMainCamRecommendation = MainCamEnum.WIDE;
-            if (MainCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(MainCamEnum.WIDE);
-            }
-        } else if (tempCamList.size() == 0) {
-            mainCamRecommendation.add(null);
-        } else if (tempCamList.get(0).name.equals("1")) {
-            mainCamRecommendation.add(MainCamEnum.FOUR);
-            lastMainCamRecommendation = MainCamEnum.FOUR;
-            if (MainCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(MainCamEnum.FOUR);
-            }
-        } else if (tempCamList.get(0).name.equals("2") || tempCamList.get(0).name.equals("12")) {
-            mainCamRecommendation.add(MainCamEnum.FOUR_POINT_FIVE);
-            lastMainCamRecommendation = MainCamEnum.FOUR_POINT_FIVE;
-            if (MainCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(MainCamEnum.FOUR_POINT_FIVE);
-            }
-        } else if (tempCamList.get(0).name.equals("3") || tempCamList.get(0).name.equals("23") || tempCamList.get(0).name.equals("34")) {
-            mainCamRecommendation.add(MainCamEnum.FIVE);
-            lastMainCamRecommendation = MainCamEnum.FIVE;
-            if (MainCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(MainCamEnum.FIVE);
-            }
-        } else if (tempCamList.get(0).name.equals("4") || tempCamList.get(0).name.equals("45")) {
-            mainCamRecommendation.add(MainCamEnum.FIVE_POINT_FIVE);
-            lastMainCamRecommendation = MainCamEnum.FIVE_POINT_FIVE;
-            if (MainCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(MainCamEnum.FIVE_POINT_FIVE);
-            }
-        } else if (tempCamList.get(0).name.equals("5")) {
-            mainCamRecommendation.add(MainCamEnum.SIX);
-            lastMainCamRecommendation = MainCamEnum.SIX;
-            if (MainCamEnum.contains(currentScene)) {
-                Notifier.getInstance().notify(MainCamEnum.SIX);
-            }
-        }
-
-        while (mainCamRecommendation.size() > 3) {
-            mainCamRecommendation.remove(mainCamRecommendation.size() - 1);
-        }
-
-//        System.out.println();
-    }
-
-    int requiredColorDifference = 20;
-
-    private boolean isDifferent(int rgb, int rgb0) {
-        return isDifferent(rgb, rgb0, requiredColorDifference);
-    }
-
-    private boolean isDifferent(int rgb, int rgb0, int requiredColorDifference) {
-        int r = (rgb >> 16) & 0xFF;
-        int g = (rgb >> 8) & 0xFF;
-        int b = (rgb >> 0) & 0xFF;
-
-        int r0 = (rgb0 >> 16) & 0xFF;
-        int g0 = (rgb0 >> 8) & 0xFF;
-        int b0 = (rgb0 >> 0) & 0xFF;
-
-        boolean redDiff = Math.abs(r0 - r) > requiredColorDifference;
-        boolean greenDiff = Math.abs(g0 - g) > requiredColorDifference;
-        boolean blueDiff = Math.abs(b0 - b) > requiredColorDifference;
-
-        if (redDiff) {
-            if (greenDiff || blueDiff) {
-                return true;
-            }
-        }
-
-        return greenDiff && blueDiff;
-    }
-
-    private void formWindowLostFocus(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowLostFocus
-        if (!cancelAutoPilot) {
-            cancelAutoPilot();
-        }
-        if (!cancelAutoSlideSwitch) {
-            cancelAutoSlideSwitch();
-        }
-    }//GEN-LAST:event_formWindowLostFocus
-
-    private void welcomeButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeButton1ActionPerformed
-        transition("For CREF Only (No Audio Broadcast)");
-    }//GEN-LAST:event_welcomeButton1ActionPerformed
-
-    ServiceSectionEnum serviceSectionState = ServiceSectionEnum.WORSHIP_SET;
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        serviceSectionState = ServiceSectionEnum.WORSHIP_SET;
-        fadeDelayField.setText(serviceSectionState.getFadeDelay() + "");
-        moveDelaySpinner.setText(serviceSectionState.getMoveDelay() + "");
+        System.out.println("Setting First Scene " + currentScene);
+        firstScene = currentScene;
     }//GEN-LAST:event_jButton1ActionPerformed
 
+    private void sensitivitySliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_sensitivitySliderStateChanged
+        sensitivityLabel.setText("" + sensitivitySlider.getValue());
+    }//GEN-LAST:event_sensitivitySliderStateChanged
+
+    private void slideMultiplierSliderStateChanged(javax.swing.event.ChangeEvent evt) {//GEN-FIRST:event_slideMultiplierSliderStateChanged
+        multiplierLabel.setText("" + slideMultiplierSlider.getValue());
+    }//GEN-LAST:event_slideMultiplierSliderStateChanged
+
+    private void jButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton5ActionPerformed
+        System.out.println("mark slide as blank");
+
+        BufferedImage blank = robot.createScreenCapture(slideRectangle);
+        File outputFile = new File("D:\\Dustin\\OBS Images\\BlankSlides\\" + System.currentTimeMillis() + ".png");
+        try {
+            ImageIO.write(blank, "PNG", outputFile);
+        } catch (IOException ex) {
+            Logger.getLogger(ImageCreator.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_jButton5ActionPerformed
+
     private void jButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton2ActionPerformed
-        serviceSectionState = ServiceSectionEnum.ANNOUNCEMENTS;
-        fadeDelayField.setText(serviceSectionState.getFadeDelay() + "");
-        moveDelaySpinner.setText(serviceSectionState.getMoveDelay() + "");
+        int index = Arrays.asList(ShotTypeEnum.values()).indexOf(firstSlotPanel.getShotType());
+        index++;
+        if (index >= ShotTypeEnum.values().length) {
+            index = 0;
+        }
+
+        firstSlotPanel.setShotType(ShotTypeEnum.values()[index]);
+        jButton2.setText(firstSlotPanel.getShotType().toString());
     }//GEN-LAST:event_jButton2ActionPerformed
 
     private void jButton3ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton3ActionPerformed
-        serviceSectionState = ServiceSectionEnum.SERMON;
-        fadeDelayField.setText(serviceSectionState.getFadeDelay() + "");
-        moveDelaySpinner.setText(serviceSectionState.getMoveDelay() + "");
+        int index = Arrays.asList(ShotTypeEnum.values()).indexOf(thirdSlotPanel.getShotType());
+        index++;
+        if (index >= ShotTypeEnum.values().length) {
+            index = 0;
+        }
 
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-
-                for (int i = 0; i < 10; i++) {
-                    oneButton.setForeground(new Color(51, 102, 0));
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-
-                    oneButton.setForeground(new Color(153, 255, 0));
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ex) {
-                        Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-
-                oneButton.setForeground(new Color(0, 0, 0));
-            }
-        });
-        t.start();
+        thirdSlotPanel.setShotType(ShotTypeEnum.values()[index]);
+        jButton3.setText(thirdSlotPanel.getShotType().toString());
     }//GEN-LAST:event_jButton3ActionPerformed
 
-    private void helperDialogWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_helperDialogWindowClosing
-        requestFocus();
-    }//GEN-LAST:event_helperDialogWindowClosing
-
-    private void welcomeButton2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeButton2ActionPerformed
-        transition("Slides (No Audio Broadcast)");
-    }//GEN-LAST:event_welcomeButton2ActionPerformed
-    int slidesX = 70;
-    int slidesY = 10;
-    int slidesW = 40;
-    int slidesH = 80;
-
-    BufferedImage slideImage;
-    BufferedImage slideLabelImage;
-    BufferedImage prevSlideImage;
-    boolean cancelSlideWatch = true;
-
-    long newSlideTime = System.currentTimeMillis();
-    private CamEnum lastMainCamRecommendation = MainCamEnum.WIDE;
-    private CamEnum lastSdCamRecommendation = SdCamEnum.WIDE;
-    private CamEnum lastCamRecommendation = MainCamEnum.WIDE;
-
-    private void genHdButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButtonActionPerformed
-        transition(MainCamEnum.WIDE);
-    }//GEN-LAST:event_genHdButtonActionPerformed
-
-    private void genHdButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButton6ActionPerformed
-        transition(MainCamEnum.SIX);
-    }//GEN-LAST:event_genHdButton6ActionPerformed
-
-    private void genHdButton55ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButton55ActionPerformed
-        transition(MainCamEnum.FIVE_POINT_FIVE);
-    }//GEN-LAST:event_genHdButton55ActionPerformed
-
-    private void genHdButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButton5ActionPerformed
-        transition(MainCamEnum.FIVE);
-    }//GEN-LAST:event_genHdButton5ActionPerformed
-
-    private void genHdButton45ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButton45ActionPerformed
-        transition(MainCamEnum.FOUR_POINT_FIVE);
-    }//GEN-LAST:event_genHdButton45ActionPerformed
-
-    private void genHdButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButton4ActionPerformed
-        transition(MainCamEnum.FOUR);
-    }//GEN-LAST:event_genHdButton4ActionPerformed
-
-    private void overlaySwitchButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_overlaySwitchButtonActionPerformed
-        if (!SlideState.SLIDE_COMBO.equals(slideState)) {
-            setSlideState(SlideState.SLIDE_COMBO);
-        }
-    }//GEN-LAST:event_overlaySwitchButtonActionPerformed
-
-    private void genSdButton5ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genSdButton5ActionPerformed
-        transition(SdCamEnum.FIVE);
-    }//GEN-LAST:event_genSdButton5ActionPerformed
-
-    private void genSdButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genSdButtonActionPerformed
-        transition(SdCamEnum.WIDE);
-    }//GEN-LAST:event_genSdButtonActionPerformed
-
-    private void genSdButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genSdButton4ActionPerformed
-        transition(SdCamEnum.FOUR);
-    }//GEN-LAST:event_genSdButton4ActionPerformed
-
-    private void genSdButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genSdButton6ActionPerformed
-        transition(SdCamEnum.SIX);
-    }//GEN-LAST:event_genSdButton6ActionPerformed
-
-    boolean cancelAutoSlideSwitch = true;
-
-    private void jButton4ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton4ActionPerformed
-        cancelAutoSlideSwitch = !cancelAutoSlideSwitch;
-        if (cancelAutoSlideSwitch) {
-            jButton4.setForeground(Color.RED);
-        } else {
-            jButton4.setForeground(Color.GREEN);
-        }
-    }//GEN-LAST:event_jButton4ActionPerformed
-
-    private void cancelAutoSlideSwitch() {
-        if (!cancelAutoSlideSwitch) {
-            cancelAutoSlideSwitch = true;
-            jButton4.setForeground(Color.RED);
-        }
-    }
-
-    private void overlaySwitchButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_overlaySwitchButton1ActionPerformed
-        if (!SlideState.NO_SLIDE.equals(slideState)) {
-            setSlideState(SlideState.NO_SLIDE);
-        }
-    }//GEN-LAST:event_overlaySwitchButton1ActionPerformed
-
     private void jButton6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton6ActionPerformed
-        if (sdLImage != null) {
-            sdLImage = null;
-            jButton6.setText("o");
-            jButton6.setIcon(null);
-        } else {
-            saveSdLImage = true;
+        int index = Arrays.asList(ShotTypeEnum.values()).indexOf(fourthSlotPanel.getShotType());
+        index++;
+        if (index >= ShotTypeEnum.values().length) {
+            index = 0;
         }
+
+        fourthSlotPanel.setShotType(ShotTypeEnum.values()[index]);
+        jButton6.setText(fourthSlotPanel.getShotType().toString());
     }//GEN-LAST:event_jButton6ActionPerformed
 
-    private void jButton7ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton7ActionPerformed
-        if (sd4Image != null) {
-            sd4Image = null;
-            jButton7.setText("o");
-            jButton7.setIcon(null);
-        } else {
-            saveSd4Image = true;
-        }
-    }//GEN-LAST:event_jButton7ActionPerformed
+    BufferedImage prevProgramImage = null;
+    BufferedImage prevSlot1Image = null;
+    BufferedImage prevSlot3Image = null;
+    BufferedImage prevSlot4Image = null;
 
-    private void jButton8ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton8ActionPerformed
-        if (sd5Image != null) {
-            sd5Image = null;
-            jButton8.setText("o");
-            jButton8.setIcon(null);
-        } else {
-            saveSd5Image = true;
-        }
-    }//GEN-LAST:event_jButton8ActionPerformed
+    /**
+     * @return the slideState
+     */
+    public SlideState getSlideState() {
+        return slideState;
+    }
 
-    private void jButton9ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton9ActionPerformed
-        if (sd6Image != null) {
-            sd6Image = null;
-            jButton9.setText("o");
-            jButton9.setIcon(null);
-        } else {
-            saveSd6Image = true;
-        }
-    }//GEN-LAST:event_jButton9ActionPerformed
+    /**
+     * @param slideState the slideState to set
+     */
+    public void setSlideState(SlideState slideState) {
+//        System.out.println("     setting slide state: " + slideState.toString());
+        this.slideState = slideState;
+        currentOverlayLabel.setIcon(new ImageIcon(ImageUtilities.getImage(slideState.getOverlayImage(), 2.5, 0)));
+        currentOverlayLabel.setToolTipText(slideState.toString());
 
-    private void jButton10ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton10ActionPerformed
-        if (sdRImage != null) {
-            sdRImage = null;
-            jButton10.setText("o");
-            jButton10.setIcon(null);
-        } else {
-            saveSdRImage = true;
-        }
-    }//GEN-LAST:event_jButton10ActionPerformed
-
-    private void jButton11ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton11ActionPerformed
-        if (hd4Image != null) {
-            hd4Image = null;
-            jButton11.setText("o");
-            jButton11.setIcon(null);
-        } else {
-            saveHd4Image = true;
-        }
-    }//GEN-LAST:event_jButton11ActionPerformed
-
-    private void jButton12ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton12ActionPerformed
-        if (hd4_5Image != null) {
-            hd4_5Image = null;
-            jButton12.setText("o");
-            jButton12.setIcon(null);
-        } else {
-            saveHd4_5Image = true;
-        }
-    }//GEN-LAST:event_jButton12ActionPerformed
-
-    private void jButton13ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton13ActionPerformed
-        if (hd5Image != null) {
-            hd5Image = null;
-            jButton13.setText("o");
-            jButton13.setIcon(null);
-        } else {
-            saveHd5Image = true;
-        }
-    }//GEN-LAST:event_jButton13ActionPerformed
-
-    private void jButton14ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton14ActionPerformed
-        if (hd5_5Image != null) {
-            hd5_5Image = null;
-            jButton14.setText("o");
-            jButton14.setIcon(null);
-        } else {
-            saveHd5_5Image = true;
-        }
-    }//GEN-LAST:event_jButton14ActionPerformed
-
-    private void jButton15ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton15ActionPerformed
-        if (hd6Image != null) {
-            hd6Image = null;
-            jButton15.setText("o");
-            jButton15.setIcon(null);
-        } else {
-            saveHd6Image = true;
-        }
-    }//GEN-LAST:event_jButton15ActionPerformed
-
-    private void jButton16ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton16ActionPerformed
-        if (blankSlideImage != null) {
-            blankSlideImage = null;
-            jButton16.setText("blank");
-            jButton16.setIcon(null);
-        } else {
-            saveBlankSlideImage = true;
-        }
-    }//GEN-LAST:event_jButton16ActionPerformed
-
-    private void genHdButtonTightActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_genHdButtonTightActionPerformed
-        transition(MainCamEnum.TIGHT);
-    }//GEN-LAST:event_genHdButtonTightActionPerformed
-
-    private void sdCam2ButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sdCam2ButtonActionPerformed
-        transition(SdCam2Enum.TIGHT);
-    }//GEN-LAST:event_sdCam2ButtonActionPerformed
-
-    private void cancelAutoPilot() {
-        cancelAutoPilot = true;
-        autoPilotButton.setForeground(Color.RED);
-        autoPilotButton.setVisible(true);
+        firstSlotPanel.setSlideState(slideState);
+        thirdSlotPanel.setSlideState(slideState);
+        fourthSlotPanel.setSlideState(slideState);
     }
 
     /**
@@ -2525,6 +1167,7 @@ public class ObsAutomation extends javax.swing.JFrame {
             java.util.logging.Logger.getLogger(ObsAutomation.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
+        //</editor-fold>
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
@@ -2535,44 +1178,32 @@ public class ObsAutomation extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton autoPilotButton;
-    private javax.swing.JLabel camera1Label;
+    private javax.swing.JPanel autoPilotMessagePanel;
+    private javax.swing.JPanel autoPilotUpdatePanel;
+    private javax.swing.JDialog autopilotDialog;
+    private javax.swing.JLabel autopilotProgramLabel;
+    private javax.swing.JLabel autopilotProgramLabel1;
+    private javax.swing.JLabel autopilotSlot1Label;
+    private javax.swing.JLabel autopilotSlot1Label1;
+    private javax.swing.JLabel autopilotSlot3Label;
+    private javax.swing.JLabel autopilotSlot3Label1;
+    private javax.swing.JLabel autopilotSlot4Label;
+    private javax.swing.JLabel autopilotSlot4Label1;
     private javax.swing.JButton countDownCancelButton;
     private javax.swing.JLabel countDownLabel;
     private javax.swing.JLabel currentOverlayLabel;
-    private javax.swing.JLabel currentSceneLabel;
-    private javax.swing.JTextField fadeDelayField;
-    private javax.swing.Box.Filler filler1;
+    private javax.swing.JLabel fadeLabel;
+    private javax.swing.JSlider fadeSlider;
     private javax.swing.Box.Filler filler2;
     private javax.swing.JButton fullSlidesButton;
-    private javax.swing.JButton genHdButton;
-    private javax.swing.JButton genHdButton4;
-    private javax.swing.JButton genHdButton45;
-    private javax.swing.JButton genHdButton5;
-    private javax.swing.JButton genHdButton55;
-    private javax.swing.JButton genHdButton6;
-    private javax.swing.JButton genHdButtonTight;
-    private javax.swing.JButton genSdButton;
-    private javax.swing.JButton genSdButton4;
-    private javax.swing.JButton genSdButton5;
-    private javax.swing.JButton genSdButton6;
     private javax.swing.JButton goodByeButton;
     private javax.swing.JDialog helperDialog;
     private javax.swing.JButton jButton1;
-    private javax.swing.JButton jButton10;
-    private javax.swing.JButton jButton11;
-    private javax.swing.JButton jButton12;
-    private javax.swing.JButton jButton13;
-    private javax.swing.JButton jButton14;
-    private javax.swing.JButton jButton15;
-    private javax.swing.JButton jButton16;
     private javax.swing.JButton jButton2;
     private javax.swing.JButton jButton3;
     private javax.swing.JButton jButton4;
+    private javax.swing.JButton jButton5;
     private javax.swing.JButton jButton6;
-    private javax.swing.JButton jButton7;
-    private javax.swing.JButton jButton8;
-    private javax.swing.JButton jButton9;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel11;
@@ -2583,9 +1214,12 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
     private javax.swing.JLabel jLabel18;
+    private javax.swing.JLabel jLabel19;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel20;
     private javax.swing.JLabel jLabel21;
+    private javax.swing.JLabel jLabel22;
+    private javax.swing.JLabel jLabel23;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
@@ -2599,7 +1233,6 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel12;
     private javax.swing.JPanel jPanel13;
     private javax.swing.JPanel jPanel14;
-    private javax.swing.JPanel jPanel15;
     private javax.swing.JPanel jPanel16;
     private javax.swing.JPanel jPanel17;
     private javax.swing.JPanel jPanel18;
@@ -2618,6 +1251,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel3;
     private javax.swing.JPanel jPanel30;
     private javax.swing.JPanel jPanel31;
+    private javax.swing.JPanel jPanel32;
     private javax.swing.JPanel jPanel33;
     private javax.swing.JPanel jPanel34;
     private javax.swing.JPanel jPanel35;
@@ -2629,6 +1263,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel40;
     private javax.swing.JPanel jPanel41;
     private javax.swing.JPanel jPanel42;
+    private javax.swing.JPanel jPanel45;
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
@@ -2636,19 +1271,31 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel9;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JSplitPane jSplitPane1;
-    private javax.swing.JTextField moveDelaySpinner;
-    private javax.swing.JButton oneButton;
+    private javax.swing.JLabel moveLabel;
+    private javax.swing.JSlider moveSlider;
+    private javax.swing.JLabel multiplierLabel;
     private javax.swing.JButton overlaySwitchButton;
     private javax.swing.JButton overlaySwitchButton1;
+    private javax.swing.JPanel pickerPanel;
     private javax.swing.JButton prepHelperButton;
-    private javax.swing.JButton sdCam2Button;
-    private javax.swing.JLabel sdCameraLabel;
-    private javax.swing.JTextField sensitivityField;
-    private javax.swing.JLabel slidesLabel;
+    private javax.swing.JPanel programPanel;
+    private javax.swing.JLabel sensitivityLabel;
+    private javax.swing.JSlider sensitivitySlider;
+    private javax.swing.JLabel slideCountdownLabel;
+    private javax.swing.JSlider slideMultiplierSlider;
     private javax.swing.JPanel slidesPanel;
+    private javax.swing.JCheckBox slot1Box;
+    private javax.swing.JPanel slot1Panel;
+    private javax.swing.JSlider slot1Slider;
+    private javax.swing.JCheckBox slot3Box;
+    private javax.swing.JPanel slot3Panel;
+    private javax.swing.JSlider slot3Slider;
+    private javax.swing.JCheckBox slot4Box;
+    private javax.swing.JPanel slot4Panel;
+    private javax.swing.JSlider slot4Slider;
     private javax.swing.JButton startCountdownButton;
     private javax.swing.JButton startStreamButton;
-    private javax.swing.JButton twoButton;
+    private javax.swing.JLabel streamPrepHelperLabel;
     private javax.swing.JButton welcomeButton;
     private javax.swing.JButton welcomeButton1;
     private javax.swing.JButton welcomeButton2;
@@ -2656,20 +1303,1212 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JDialog worshipSetCountDownDialog;
     // End of variables declaration//GEN-END:variables
 
-    /**
-     * @return the slideState
-     */
-    public SlideState getSlideState() {
-        return slideState;
+    public static Robot robot = null;
+
+    static {
+        try {
+            robot = new Robot();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * @param slideState the slideState to set
-     */
-    public void setSlideState(SlideState slideState) {
-//        System.out.println("     setting slide state: " + slideState.toString());
-        this.slideState = slideState;
-        currentOverlayLabel.setIcon(new ImageIcon(slideState.getOverlayImage()));
-        currentOverlayLabel.setToolTipText(slideState.toString());
+    private Rectangle slot1ThumbRect = new Rectangle(48, 276, 212, 117);
+    private Rectangle slot3ThumbRect = new Rectangle(482, 276, 212, 117);
+    private Rectangle slot4ThumbRect = new Rectangle(699, 276, 212, 117);
+
+    private SlotPanel firstSlotPanel = new SlotPanel() {
+        @Override
+        protected void changeToScene(String scene) {
+            ObsAutomation.this.changeToScene(scene);
+        }
+
+        @Override
+        protected void codeFromObsAutomationUtility() {
+            slotThumbRect = new Rectangle(48, 276, 212, 117);
+
+            slotOverlayMap.put("Cam11080", new ArrayList<String>());
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 1,1");
+            getSceneToRectMap().put("Cam 1 1080 1,1", new Rectangle(5, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 1,1", new Point(108, 63));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 1,2");
+            getSceneToRectMap().put("Cam 1 1080 1,2", new Rectangle(62, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 1,2", new Point(165, 63));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 1,3");
+            getSceneToRectMap().put("Cam 1 1080 1,3", new Rectangle(108, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 1,3", new Point(211, 63));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 1,4");
+            getSceneToRectMap().put("Cam 1 1080 1,4", new Rectangle(165, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 1,4", new Point(268, 63));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 1,5");
+            getSceneToRectMap().put("Cam 1 1080 1,5", new Rectangle(222, 5, 204, 116));
+            sceneToMidpointMap.put("Cam 1 1080 1,5", new Point(324, 63));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 2,1");
+            getSceneToRectMap().put("Cam 1 1080 2,1", new Rectangle(5, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 2,1", new Point(108, 86));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 2,2");
+            getSceneToRectMap().put("Cam 1 1080 2,2", new Rectangle(62, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 2,2", new Point(165, 86));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 2,3");
+            getSceneToRectMap().put("Cam 1 1080 2,3", new Rectangle(108, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 2,3", new Point(211, 86));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 2,4");
+            getSceneToRectMap().put("Cam 1 1080 2,4", new Rectangle(165, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 1 1080 2,4", new Point(268, 86));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 2,5");
+            getSceneToRectMap().put("Cam 1 1080 2,5", new Rectangle(222, 28, 204, 116));
+            sceneToMidpointMap.put("Cam 1 1080 2,5", new Point(324, 86));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 3,1");
+            getSceneToRectMap().put("Cam 1 1080 3,1", new Rectangle(5, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 1 1080 3,1", new Point(108, 120));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 3,2");
+            getSceneToRectMap().put("Cam 1 1080 3,2", new Rectangle(62, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 1 1080 3,2", new Point(165, 120));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 3,3");
+            getSceneToRectMap().put("Cam 1 1080 3,3", new Rectangle(108, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 1 1080 3,3", new Point(211, 120));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 3,4");
+            getSceneToRectMap().put("Cam 1 1080 3,4", new Rectangle(165, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 1 1080 3,4", new Point(268, 120));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 3,5");
+            getSceneToRectMap().put("Cam 1 1080 3,5", new Rectangle(222, 63, 204, 115));
+            sceneToMidpointMap.put("Cam 1 1080 3,5", new Point(324, 120));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 4,1");
+            getSceneToRectMap().put("Cam 1 1080 4,1", new Rectangle(5, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 1 1080 4,1", new Point(108, 150));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 4,2");
+            getSceneToRectMap().put("Cam 1 1080 4,2", new Rectangle(62, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 1 1080 4,2", new Point(165, 150));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 4,3");
+            getSceneToRectMap().put("Cam 1 1080 4,3", new Rectangle(108, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 1 1080 4,3", new Point(211, 150));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 4,4");
+            getSceneToRectMap().put("Cam 1 1080 4,4", new Rectangle(165, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 1 1080 4,4", new Point(268, 150));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 4,5");
+            getSceneToRectMap().put("Cam 1 1080 4,5", new Rectangle(222, 98, 204, 104));
+            sceneToMidpointMap.put("Cam 1 1080 4,5", new Point(324, 150));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 5,1");
+            getSceneToRectMap().put("Cam 1 1080 5,1", new Rectangle(5, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 1 1080 5,1", new Point(108, 178));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 5,2");
+            getSceneToRectMap().put("Cam 1 1080 5,2", new Rectangle(62, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 1 1080 5,2", new Point(165, 178));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 5,3");
+            getSceneToRectMap().put("Cam 1 1080 5,3", new Rectangle(108, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 1 1080 5,3", new Point(211, 178));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 5,4");
+            getSceneToRectMap().put("Cam 1 1080 5,4", new Rectangle(165, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 1 1080 5,4", new Point(268, 178));
+            slotOverlayMap.get("Cam11080").add("Cam 1 1080 5,5");
+            getSceneToRectMap().put("Cam 1 1080 5,5", new Rectangle(222, 121, 204, 114));
+            sceneToMidpointMap.put("Cam 1 1080 5,5", new Point(324, 178));
+            slotOverlayMap.put("Cam11296", new ArrayList<String>());
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 1,1");
+            getSceneToRectMap().put("Cam 1 1296 1,1", new Rectangle(5, 5, 263, 139));
+            sceneToMidpointMap.put("Cam 1 1296 1,1", new Point(136, 74));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 1,2");
+            getSceneToRectMap().put("Cam 1 1296 1,2", new Rectangle(62, 5, 252, 139));
+            sceneToMidpointMap.put("Cam 1 1296 1,2", new Point(188, 74));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 1,3");
+            getSceneToRectMap().put("Cam 1 1296 1,3", new Rectangle(108, 5, 263, 139));
+            sceneToMidpointMap.put("Cam 1 1296 1,3", new Point(239, 74));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 1,4");
+            getSceneToRectMap().put("Cam 1 1296 1,4", new Rectangle(165, 5, 261, 139));
+            sceneToMidpointMap.put("Cam 1 1296 1,4", new Point(295, 74));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 2,1");
+            getSceneToRectMap().put("Cam 1 1296 2,1", new Rectangle(5, 40, 263, 138));
+            sceneToMidpointMap.put("Cam 1 1296 2,1", new Point(136, 109));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 2,2");
+            getSceneToRectMap().put("Cam 1 1296 2,2", new Rectangle(62, 40, 252, 138));
+            sceneToMidpointMap.put("Cam 1 1296 2,2", new Point(188, 109));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 2,3");
+            getSceneToRectMap().put("Cam 1 1296 2,3", new Rectangle(108, 40, 263, 138));
+            sceneToMidpointMap.put("Cam 1 1296 2,3", new Point(239, 109));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 2,4");
+            getSceneToRectMap().put("Cam 1 1296 2,4", new Rectangle(165, 40, 261, 138));
+            sceneToMidpointMap.put("Cam 1 1296 2,4", new Point(295, 109));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 3,1");
+            getSceneToRectMap().put("Cam 1 1296 3,1", new Rectangle(5, 63, 263, 139));
+            sceneToMidpointMap.put("Cam 1 1296 3,1", new Point(136, 132));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 3,2");
+            getSceneToRectMap().put("Cam 1 1296 3,2", new Rectangle(62, 63, 252, 139));
+            sceneToMidpointMap.put("Cam 1 1296 3,2", new Point(188, 132));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 3,3");
+            getSceneToRectMap().put("Cam 1 1296 3,3", new Rectangle(108, 63, 263, 139));
+            sceneToMidpointMap.put("Cam 1 1296 3,3", new Point(239, 132));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 3,4");
+            getSceneToRectMap().put("Cam 1 1296 3,4", new Rectangle(165, 63, 261, 139));
+            sceneToMidpointMap.put("Cam 1 1296 3,4", new Point(295, 132));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 4,1");
+            getSceneToRectMap().put("Cam 1 1296 4,1", new Rectangle(5, 98, 263, 137));
+            sceneToMidpointMap.put("Cam 1 1296 4,1", new Point(136, 166));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 4,2");
+            getSceneToRectMap().put("Cam 1 1296 4,2", new Rectangle(62, 98, 252, 137));
+            sceneToMidpointMap.put("Cam 1 1296 4,2", new Point(188, 166));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 4,3");
+            getSceneToRectMap().put("Cam 1 1296 4,3", new Rectangle(108, 98, 263, 137));
+            sceneToMidpointMap.put("Cam 1 1296 4,3", new Point(239, 166));
+            slotOverlayMap.get("Cam11296").add("Cam 1 1296 4,4");
+            getSceneToRectMap().put("Cam 1 1296 4,4", new Rectangle(165, 98, 261, 137));
+            sceneToMidpointMap.put("Cam 1 1296 4,4", new Point(295, 166));
+            slotOverlayMap.put("Cam11512", new ArrayList<String>());
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 1,1");
+            getSceneToRectMap().put("Cam 1 1512 1,1", new Rectangle(5, 5, 309, 173));
+            sceneToMidpointMap.put("Cam 1 1512 1,1", new Point(159, 91));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 1,2");
+            getSceneToRectMap().put("Cam 1 1512 1,2", new Rectangle(62, 5, 309, 173));
+            sceneToMidpointMap.put("Cam 1 1512 1,2", new Point(216, 91));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 1,3");
+            getSceneToRectMap().put("Cam 1 1512 1,3", new Rectangle(108, 5, 318, 173));
+            sceneToMidpointMap.put("Cam 1 1512 1,3", new Point(267, 91));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 2,1");
+            getSceneToRectMap().put("Cam 1 1512 2,1", new Rectangle(5, 40, 309, 162));
+            sceneToMidpointMap.put("Cam 1 1512 2,1", new Point(159, 121));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 2,2");
+            getSceneToRectMap().put("Cam 1 1512 2,2", new Rectangle(62, 40, 309, 162));
+            sceneToMidpointMap.put("Cam 1 1512 2,2", new Point(216, 121));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 2,3");
+            getSceneToRectMap().put("Cam 1 1512 2,3", new Rectangle(108, 40, 318, 162));
+            sceneToMidpointMap.put("Cam 1 1512 2,3", new Point(267, 121));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 3,1");
+            getSceneToRectMap().put("Cam 1 1512 3,1", new Rectangle(5, 63, 309, 172));
+            sceneToMidpointMap.put("Cam 1 1512 3,1", new Point(159, 149));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 3,2");
+            getSceneToRectMap().put("Cam 1 1512 3,2", new Rectangle(62, 63, 309, 172));
+            sceneToMidpointMap.put("Cam 1 1512 3,2", new Point(216, 149));
+            slotOverlayMap.get("Cam11512").add("Cam 1 1512 3,3");
+            getSceneToRectMap().put("Cam 1 1512 3,3", new Rectangle(108, 63, 318, 172));
+            sceneToMidpointMap.put("Cam 1 1512 3,3", new Point(267, 149));
+            slotOverlayMap.put("Cam11728", new ArrayList<String>());
+            slotOverlayMap.get("Cam11728").add("Cam 1 1728 1,1");
+            getSceneToRectMap().put("Cam 1 1728 1,1", new Rectangle(5, 5, 366, 197));
+            sceneToMidpointMap.put("Cam 1 1728 1,1", new Point(188, 103));
+            slotOverlayMap.get("Cam11728").add("Cam 1 1728 1,2");
+            getSceneToRectMap().put("Cam 1 1728 1,2", new Rectangle(62, 5, 364, 197));
+            sceneToMidpointMap.put("Cam 1 1728 1,2", new Point(244, 103));
+            slotOverlayMap.get("Cam11728").add("Cam 1 1728 2,1");
+            getSceneToRectMap().put("Cam 1 1728 2,1", new Rectangle(5, 40, 366, 195));
+            sceneToMidpointMap.put("Cam 1 1728 2,1", new Point(188, 137));
+            slotOverlayMap.get("Cam11728").add("Cam 1 1728 2,2");
+            getSceneToRectMap().put("Cam 1 1728 2,2", new Rectangle(62, 40, 364, 195));
+            sceneToMidpointMap.put("Cam 1 1728 2,2", new Point(244, 137));
+            slotOverlayMap.put("Cam11944", new ArrayList<String>());
+            slotOverlayMap.get("Cam11944").add("Cam 1 1944 1,1");
+            getSceneToRectMap().put("Cam 1 1944 1,1", new Rectangle(5, 5, 411, 230));
+            sceneToMidpointMap.put("Cam 1 1944 1,1", new Point(210, 120));
+            slotOverlayMap.put("Cam1Slides1080", new ArrayList<String>());
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 1,1");
+            getSceneToRectMap().put("Cam 1 Slides 1080 1,1", new Rectangle(5, 5, 149, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 1,1", new Point(79, 63));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 1,2");
+            getSceneToRectMap().put("Cam 1 Slides 1080 1,2", new Rectangle(51, 5, 160, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 1,2", new Point(131, 63));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 1,3");
+            getSceneToRectMap().put("Cam 1 Slides 1080 1,3", new Rectangle(108, 5, 148, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 1,3", new Point(182, 63));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 1,4");
+            getSceneToRectMap().put("Cam 1 Slides 1080 1,4", new Rectangle(165, 5, 149, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 1,4", new Point(239, 63));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 1,5");
+            getSceneToRectMap().put("Cam 1 Slides 1080 1,5", new Rectangle(211, 5, 160, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 1,5", new Point(291, 63));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 1,6");
+            getSceneToRectMap().put("Cam 1 Slides 1080 1,6", new Rectangle(268, 5, 148, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 1,6", new Point(342, 63));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 2,1");
+            getSceneToRectMap().put("Cam 1 Slides 1080 2,1", new Rectangle(5, 28, 149, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 2,1", new Point(79, 86));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 2,2");
+            getSceneToRectMap().put("Cam 1 Slides 1080 2,2", new Rectangle(51, 28, 160, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 2,2", new Point(131, 86));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 2,3");
+            getSceneToRectMap().put("Cam 1 Slides 1080 2,3", new Rectangle(108, 28, 148, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 2,3", new Point(182, 86));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 2,4");
+            getSceneToRectMap().put("Cam 1 Slides 1080 2,4", new Rectangle(165, 28, 149, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 2,4", new Point(239, 86));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 2,5");
+            getSceneToRectMap().put("Cam 1 Slides 1080 2,5", new Rectangle(211, 28, 160, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 2,5", new Point(291, 86));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 2,6");
+            getSceneToRectMap().put("Cam 1 Slides 1080 2,6", new Rectangle(268, 28, 148, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 2,6", new Point(342, 86));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 3,1");
+            getSceneToRectMap().put("Cam 1 Slides 1080 3,1", new Rectangle(5, 63, 149, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 3,1", new Point(79, 115));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 3,2");
+            getSceneToRectMap().put("Cam 1 Slides 1080 3,2", new Rectangle(51, 63, 160, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 3,2", new Point(131, 115));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 3,3");
+            getSceneToRectMap().put("Cam 1 Slides 1080 3,3", new Rectangle(108, 63, 148, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 3,3", new Point(182, 115));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 3,4");
+            getSceneToRectMap().put("Cam 1 Slides 1080 3,4", new Rectangle(165, 63, 149, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 3,4", new Point(239, 115));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 3,5");
+            getSceneToRectMap().put("Cam 1 Slides 1080 3,5", new Rectangle(211, 63, 160, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 3,5", new Point(291, 115));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 3,6");
+            getSceneToRectMap().put("Cam 1 Slides 1080 3,6", new Rectangle(268, 63, 148, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 3,6", new Point(342, 115));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 4,1");
+            getSceneToRectMap().put("Cam 1 Slides 1080 4,1", new Rectangle(5, 86, 149, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 4,1", new Point(79, 144));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 4,2");
+            getSceneToRectMap().put("Cam 1 Slides 1080 4,2", new Rectangle(51, 86, 160, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 4,2", new Point(131, 144));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 4,3");
+            getSceneToRectMap().put("Cam 1 Slides 1080 4,3", new Rectangle(108, 86, 148, 116));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 4,3", new Point(182, 144));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 4,4");
+            getSceneToRectMap().put("Cam 1 Slides 1080 4,4", new Rectangle(165, 98, 149, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 4,4", new Point(239, 150));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 4,5");
+            getSceneToRectMap().put("Cam 1 Slides 1080 4,5", new Rectangle(211, 98, 160, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 4,5", new Point(291, 150));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 4,6");
+            getSceneToRectMap().put("Cam 1 Slides 1080 4,6", new Rectangle(268, 98, 148, 104));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 4,6", new Point(342, 150));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 5,1");
+            getSceneToRectMap().put("Cam 1 Slides 1080 5,1", new Rectangle(5, 121, 149, 114));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 5,1", new Point(79, 178));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 5,2");
+            getSceneToRectMap().put("Cam 1 Slides 1080 5,2", new Rectangle(51, 121, 160, 114));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 5,2", new Point(131, 178));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 5,3");
+            getSceneToRectMap().put("Cam 1 Slides 1080 5,3", new Rectangle(108, 121, 148, 114));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 5,3", new Point(182, 178));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 5,4");
+            getSceneToRectMap().put("Cam 1 Slides 1080 5,4", new Rectangle(165, 121, 149, 114));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 5,4", new Point(239, 178));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 5,5");
+            getSceneToRectMap().put("Cam 1 Slides 1080 5,5", new Rectangle(211, 121, 160, 114));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 5,5", new Point(291, 178));
+            slotOverlayMap.get("Cam1Slides1080").add("Cam 1 Slides 1080 5,6");
+            getSceneToRectMap().put("Cam 1 Slides 1080 5,6", new Rectangle(268, 121, 148, 114));
+            sceneToMidpointMap.put("Cam 1 Slides 1080 5,6", new Point(342, 178));
+            slotOverlayMap.put("Cam1Slides1296", new ArrayList<String>());
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 1,1");
+            getSceneToRectMap().put("Cam 1 Slides 1296 1,1", new Rectangle(5, 5, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 1,1", new Point(90, 68));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 1,2");
+            getSceneToRectMap().put("Cam 1 Slides 1296 1,2", new Rectangle(51, 5, 183, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 1,2", new Point(142, 68));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 1,3");
+            getSceneToRectMap().put("Cam 1 Slides 1296 1,3", new Rectangle(108, 5, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 1,3", new Point(193, 68));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 1,4");
+            getSceneToRectMap().put("Cam 1 Slides 1296 1,4", new Rectangle(154, 5, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 1,4", new Point(239, 68));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 1,5");
+            getSceneToRectMap().put("Cam 1 Slides 1296 1,5", new Rectangle(199, 5, 183, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 1,5", new Point(290, 68));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 1,6");
+            getSceneToRectMap().put("Cam 1 Slides 1296 1,6", new Rectangle(245, 5, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 1,6", new Point(330, 68));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 2,1");
+            getSceneToRectMap().put("Cam 1 Slides 1296 2,1", new Rectangle(5, 28, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 2,1", new Point(90, 91));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 2,2");
+            getSceneToRectMap().put("Cam 1 Slides 1296 2,2", new Rectangle(51, 28, 183, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 2,2", new Point(142, 91));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 2,3");
+            getSceneToRectMap().put("Cam 1 Slides 1296 2,3", new Rectangle(108, 28, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 2,3", new Point(193, 91));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 2,4");
+            getSceneToRectMap().put("Cam 1 Slides 1296 2,4", new Rectangle(154, 28, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 2,4", new Point(239, 91));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 2,5");
+            getSceneToRectMap().put("Cam 1 Slides 1296 2,5", new Rectangle(199, 28, 183, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 2,5", new Point(290, 91));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 2,6");
+            getSceneToRectMap().put("Cam 1 Slides 1296 2,6", new Rectangle(245, 28, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 2,6", new Point(330, 91));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 3,1");
+            getSceneToRectMap().put("Cam 1 Slides 1296 3,1", new Rectangle(5, 63, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 3,1", new Point(90, 126));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 3,2");
+            getSceneToRectMap().put("Cam 1 Slides 1296 3,2", new Rectangle(51, 63, 183, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 3,2", new Point(142, 126));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 3,3");
+            getSceneToRectMap().put("Cam 1 Slides 1296 3,3", new Rectangle(108, 63, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 3,3", new Point(193, 126));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 3,4");
+            getSceneToRectMap().put("Cam 1 Slides 1296 3,4", new Rectangle(154, 63, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 3,4", new Point(239, 126));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 3,5");
+            getSceneToRectMap().put("Cam 1 Slides 1296 3,5", new Rectangle(199, 63, 183, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 3,5", new Point(290, 126));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 3,6");
+            getSceneToRectMap().put("Cam 1 Slides 1296 3,6", new Rectangle(245, 63, 171, 127));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 3,6", new Point(330, 126));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 4,1");
+            getSceneToRectMap().put("Cam 1 Slides 1296 4,1", new Rectangle(5, 98, 171, 115));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 4,1", new Point(90, 155));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 4,2");
+            getSceneToRectMap().put("Cam 1 Slides 1296 4,2", new Rectangle(51, 98, 183, 115));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 4,2", new Point(142, 155));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 4,3");
+            getSceneToRectMap().put("Cam 1 Slides 1296 4,3", new Rectangle(108, 98, 171, 115));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 4,3", new Point(193, 155));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 4,4");
+            getSceneToRectMap().put("Cam 1 Slides 1296 4,4", new Rectangle(154, 98, 171, 115));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 4,4", new Point(239, 155));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 4,5");
+            getSceneToRectMap().put("Cam 1 Slides 1296 4,5", new Rectangle(199, 98, 183, 115));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 4,5", new Point(290, 155));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 4,6");
+            getSceneToRectMap().put("Cam 1 Slides 1296 4,6", new Rectangle(245, 98, 171, 115));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 4,6", new Point(330, 155));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 5,1");
+            getSceneToRectMap().put("Cam 1 Slides 1296 5,1", new Rectangle(5, 109, 171, 126));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 5,1", new Point(90, 172));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 5,2");
+            getSceneToRectMap().put("Cam 1 Slides 1296 5,2", new Rectangle(51, 109, 183, 126));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 5,2", new Point(142, 172));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 5,3");
+            getSceneToRectMap().put("Cam 1 Slides 1296 5,3", new Rectangle(108, 109, 171, 126));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 5,3", new Point(193, 172));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 5,4");
+            getSceneToRectMap().put("Cam 1 Slides 1296 5,4", new Rectangle(154, 109, 171, 126));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 5,4", new Point(239, 172));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 5,5");
+            getSceneToRectMap().put("Cam 1 Slides 1296 5,5", new Rectangle(199, 109, 183, 126));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 5,5", new Point(290, 172));
+            slotOverlayMap.get("Cam1Slides1296").add("Cam 1 Slides 1296 5,6");
+            getSceneToRectMap().put("Cam 1 Slides 1296 5,6", new Rectangle(245, 109, 171, 126));
+            sceneToMidpointMap.put("Cam 1 Slides 1296 5,6", new Point(330, 172));
+            slotOverlayMap.put("Cam1Slides1512", new ArrayList<String>());
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 1,1");
+            getSceneToRectMap().put("Cam 1 Slides 1512 1,1", new Rectangle(5, 5, 229, 173));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 1,1", new Point(119, 91));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 1,2");
+            getSceneToRectMap().put("Cam 1 Slides 1512 1,2", new Rectangle(51, 5, 240, 173));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 1,2", new Point(171, 91));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 1,3");
+            getSceneToRectMap().put("Cam 1 Slides 1512 1,3", new Rectangle(96, 5, 229, 173));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 1,3", new Point(210, 91));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 1,4");
+            getSceneToRectMap().put("Cam 1 Slides 1512 1,4", new Rectangle(142, 5, 229, 173));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 1,4", new Point(256, 91));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 1,5");
+            getSceneToRectMap().put("Cam 1 Slides 1512 1,5", new Rectangle(188, 5, 228, 173));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 1,5", new Point(302, 91));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 2,1");
+            getSceneToRectMap().put("Cam 1 Slides 1512 2,1", new Rectangle(5, 28, 229, 174));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 2,1", new Point(119, 115));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 2,2");
+            getSceneToRectMap().put("Cam 1 Slides 1512 2,2", new Rectangle(51, 28, 240, 174));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 2,2", new Point(171, 115));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 2,3");
+            getSceneToRectMap().put("Cam 1 Slides 1512 2,3", new Rectangle(96, 28, 229, 174));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 2,3", new Point(210, 115));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 2,4");
+            getSceneToRectMap().put("Cam 1 Slides 1512 2,4", new Rectangle(142, 28, 229, 174));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 2,4", new Point(256, 115));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 2,5");
+            getSceneToRectMap().put("Cam 1 Slides 1512 2,5", new Rectangle(188, 28, 228, 174));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 2,5", new Point(302, 115));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 3,1");
+            getSceneToRectMap().put("Cam 1 Slides 1512 3,1", new Rectangle(5, 63, 229, 172));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 3,1", new Point(119, 149));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 3,2");
+            getSceneToRectMap().put("Cam 1 Slides 1512 3,2", new Rectangle(51, 63, 240, 172));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 3,2", new Point(171, 149));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 3,3");
+            getSceneToRectMap().put("Cam 1 Slides 1512 3,3", new Rectangle(96, 63, 229, 172));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 3,3", new Point(210, 149));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 3,4");
+            getSceneToRectMap().put("Cam 1 Slides 1512 3,4", new Rectangle(142, 63, 229, 172));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 3,4", new Point(256, 149));
+            slotOverlayMap.get("Cam1Slides1512").add("Cam 1 Slides 1512 3,5");
+            getSceneToRectMap().put("Cam 1 Slides 1512 3,5", new Rectangle(186, 63, 230, 172));
+            sceneToMidpointMap.put("Cam 1 Slides 1512 3,5", new Point(301, 149));
+            slotOverlayMap.put("Cam1Slides1728", new ArrayList<String>());
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 1,1");
+            getSceneToRectMap().put("Cam 1 Slides 1728 1,1", new Rectangle(5, 5, 274, 197));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 1,1", new Point(142, 103));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 1,2");
+            getSceneToRectMap().put("Cam 1 Slides 1728 1,2", new Rectangle(51, 5, 274, 197));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 1,2", new Point(188, 103));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 1,3");
+            getSceneToRectMap().put("Cam 1 Slides 1728 1,3", new Rectangle(96, 5, 275, 197));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 1,3", new Point(233, 103));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 1,4");
+            getSceneToRectMap().put("Cam 1 Slides 1728 1,4", new Rectangle(142, 5, 274, 197));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 1,4", new Point(279, 103));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 2,1");
+            getSceneToRectMap().put("Cam 1 Slides 1728 2,1", new Rectangle(5, 28, 274, 198));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 2,1", new Point(142, 127));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 2,2");
+            getSceneToRectMap().put("Cam 1 Slides 1728 2,2", new Rectangle(51, 28, 274, 198));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 2,2", new Point(188, 127));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 2,3");
+            getSceneToRectMap().put("Cam 1 Slides 1728 2,3", new Rectangle(96, 28, 275, 198));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 2,3", new Point(233, 127));
+            slotOverlayMap.get("Cam1Slides1728").add("Cam 1 Slides 1728 2,4");
+            getSceneToRectMap().put("Cam 1 Slides 1728 2,4", new Rectangle(142, 28, 274, 198));
+            sceneToMidpointMap.put("Cam 1 Slides 1728 2,4", new Point(279, 127));
+            slotOverlayMap.put("Cam1Slides1944", new ArrayList<String>());
+            slotOverlayMap.get("Cam1Slides1944").add("Cam 1 Slides 1944 1,1");
+            getSceneToRectMap().put("Cam 1 Slides 1944 1,1", new Rectangle(5, 5, 309, 221));
+            sceneToMidpointMap.put("Cam 1 Slides 1944 1,1", new Point(159, 115));
+            slotOverlayMap.get("Cam1Slides1944").add("Cam 1 Slides 1944 1,2");
+            getSceneToRectMap().put("Cam 1 Slides 1944 1,2", new Rectangle(62, 5, 309, 221));
+            sceneToMidpointMap.put("Cam 1 Slides 1944 1,2", new Point(216, 115));
+            slotOverlayMap.get("Cam1Slides1944").add("Cam 1 Slides 1944 1,3");
+            getSceneToRectMap().put("Cam 1 Slides 1944 1,3", new Rectangle(119, 5, 297, 221));
+            sceneToMidpointMap.put("Cam 1 Slides 1944 1,3", new Point(267, 115));
+            slotOverlayMap.put("Cam11296", new ArrayList<String>());
+        }
+    };
+
+    private SlotPanel thirdSlotPanel = new SlotPanel() {
+        @Override
+        protected void codeFromObsAutomationUtility() {
+            slotThumbRect = new Rectangle(482, 276, 212, 117);
+            slotOverlayMap.put("Cam21080", new ArrayList<String>());
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 1,1");
+            getSceneToRectMap().put("Cam 2 1080 1,1", new Rectangle(5, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 1,1", new Point(108, 63));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 1,2");
+            getSceneToRectMap().put("Cam 2 1080 1,2", new Rectangle(62, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 1,2", new Point(165, 63));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 1,3");
+            getSceneToRectMap().put("Cam 2 1080 1,3", new Rectangle(108, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 1,3", new Point(211, 63));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 1,4");
+            getSceneToRectMap().put("Cam 2 1080 1,4", new Rectangle(165, 5, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 1,4", new Point(268, 63));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 1,5");
+            getSceneToRectMap().put("Cam 2 1080 1,5", new Rectangle(222, 5, 204, 116));
+            sceneToMidpointMap.put("Cam 2 1080 1,5", new Point(324, 63));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 2,1");
+            getSceneToRectMap().put("Cam 2 1080 2,1", new Rectangle(5, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 2,1", new Point(108, 86));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 2,2");
+            getSceneToRectMap().put("Cam 2 1080 2,2", new Rectangle(62, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 2,2", new Point(165, 86));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 2,3");
+            getSceneToRectMap().put("Cam 2 1080 2,3", new Rectangle(108, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 2,3", new Point(211, 86));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 2,4");
+            getSceneToRectMap().put("Cam 2 1080 2,4", new Rectangle(165, 28, 206, 116));
+            sceneToMidpointMap.put("Cam 2 1080 2,4", new Point(268, 86));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 2,5");
+            getSceneToRectMap().put("Cam 2 1080 2,5", new Rectangle(222, 28, 204, 116));
+            sceneToMidpointMap.put("Cam 2 1080 2,5", new Point(324, 86));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 3,1");
+            getSceneToRectMap().put("Cam 2 1080 3,1", new Rectangle(5, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 2 1080 3,1", new Point(108, 120));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 3,2");
+            getSceneToRectMap().put("Cam 2 1080 3,2", new Rectangle(62, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 2 1080 3,2", new Point(165, 120));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 3,3");
+            getSceneToRectMap().put("Cam 2 1080 3,3", new Rectangle(108, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 2 1080 3,3", new Point(211, 120));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 3,4");
+            getSceneToRectMap().put("Cam 2 1080 3,4", new Rectangle(165, 63, 206, 115));
+            sceneToMidpointMap.put("Cam 2 1080 3,4", new Point(268, 120));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 3,5");
+            getSceneToRectMap().put("Cam 2 1080 3,5", new Rectangle(222, 63, 204, 115));
+            sceneToMidpointMap.put("Cam 2 1080 3,5", new Point(324, 120));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 4,1");
+            getSceneToRectMap().put("Cam 2 1080 4,1", new Rectangle(5, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 2 1080 4,1", new Point(108, 150));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 4,2");
+            getSceneToRectMap().put("Cam 2 1080 4,2", new Rectangle(62, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 2 1080 4,2", new Point(165, 150));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 4,3");
+            getSceneToRectMap().put("Cam 2 1080 4,3", new Rectangle(108, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 2 1080 4,3", new Point(211, 150));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 4,4");
+            getSceneToRectMap().put("Cam 2 1080 4,4", new Rectangle(165, 98, 206, 104));
+            sceneToMidpointMap.put("Cam 2 1080 4,4", new Point(268, 150));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 4,5");
+            getSceneToRectMap().put("Cam 2 1080 4,5", new Rectangle(222, 98, 204, 104));
+            sceneToMidpointMap.put("Cam 2 1080 4,5", new Point(324, 150));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 5,1");
+            getSceneToRectMap().put("Cam 2 1080 5,1", new Rectangle(5, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 2 1080 5,1", new Point(108, 178));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 5,2");
+            getSceneToRectMap().put("Cam 2 1080 5,2", new Rectangle(62, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 2 1080 5,2", new Point(165, 178));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 5,3");
+            getSceneToRectMap().put("Cam 2 1080 5,3", new Rectangle(108, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 2 1080 5,3", new Point(211, 178));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 5,4");
+            getSceneToRectMap().put("Cam 2 1080 5,4", new Rectangle(165, 121, 206, 114));
+            sceneToMidpointMap.put("Cam 2 1080 5,4", new Point(268, 178));
+            slotOverlayMap.get("Cam21080").add("Cam 2 1080 5,5");
+            getSceneToRectMap().put("Cam 2 1080 5,5", new Rectangle(222, 121, 204, 114));
+            sceneToMidpointMap.put("Cam 2 1080 5,5", new Point(324, 178));
+            slotOverlayMap.put("Cam21296", new ArrayList<String>());
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 1,1");
+            getSceneToRectMap().put("Cam 2 1296 1,1", new Rectangle(5, 5, 263, 139));
+            sceneToMidpointMap.put("Cam 2 1296 1,1", new Point(136, 74));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 1,2");
+            getSceneToRectMap().put("Cam 2 1296 1,2", new Rectangle(62, 5, 252, 139));
+            sceneToMidpointMap.put("Cam 2 1296 1,2", new Point(188, 74));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 1,3");
+            getSceneToRectMap().put("Cam 2 1296 1,3", new Rectangle(108, 5, 263, 139));
+            sceneToMidpointMap.put("Cam 2 1296 1,3", new Point(239, 74));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 1,4");
+            getSceneToRectMap().put("Cam 2 1296 1,4", new Rectangle(165, 5, 261, 139));
+            sceneToMidpointMap.put("Cam 2 1296 1,4", new Point(295, 74));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 2,1");
+            getSceneToRectMap().put("Cam 2 1296 2,1", new Rectangle(5, 40, 263, 138));
+            sceneToMidpointMap.put("Cam 2 1296 2,1", new Point(136, 109));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 2,2");
+            getSceneToRectMap().put("Cam 2 1296 2,2", new Rectangle(62, 28, 252, 150));
+            sceneToMidpointMap.put("Cam 2 1296 2,2", new Point(188, 103));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 2,3");
+            getSceneToRectMap().put("Cam 2 1296 2,3", new Rectangle(108, 40, 263, 138));
+            sceneToMidpointMap.put("Cam 2 1296 2,3", new Point(239, 109));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 2,4");
+            getSceneToRectMap().put("Cam 2 1296 2,4", new Rectangle(165, 40, 261, 138));
+            sceneToMidpointMap.put("Cam 2 1296 2,4", new Point(295, 109));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 3,1");
+            getSceneToRectMap().put("Cam 2 1296 3,1", new Rectangle(5, 63, 263, 139));
+            sceneToMidpointMap.put("Cam 2 1296 3,1", new Point(136, 132));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 3,2");
+            getSceneToRectMap().put("Cam 2 1296 3,2", new Rectangle(62, 63, 252, 139));
+            sceneToMidpointMap.put("Cam 2 1296 3,2", new Point(188, 132));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 3,3");
+            getSceneToRectMap().put("Cam 2 1296 3,3", new Rectangle(108, 63, 263, 139));
+            sceneToMidpointMap.put("Cam 2 1296 3,3", new Point(239, 132));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 3,4");
+            getSceneToRectMap().put("Cam 2 1296 3,4", new Rectangle(165, 63, 261, 139));
+            sceneToMidpointMap.put("Cam 2 1296 3,4", new Point(295, 132));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 4,1");
+            getSceneToRectMap().put("Cam 2 1296 4,1", new Rectangle(5, 98, 263, 137));
+            sceneToMidpointMap.put("Cam 2 1296 4,1", new Point(136, 166));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 4,2");
+            getSceneToRectMap().put("Cam 2 1296 4,2", new Rectangle(62, 98, 252, 137));
+            sceneToMidpointMap.put("Cam 2 1296 4,2", new Point(188, 166));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 4,3");
+            getSceneToRectMap().put("Cam 2 1296 4,3", new Rectangle(108, 98, 263, 137));
+            sceneToMidpointMap.put("Cam 2 1296 4,3", new Point(239, 166));
+            slotOverlayMap.get("Cam21296").add("Cam 2 1296 4,4");
+            getSceneToRectMap().put("Cam 2 1296 4,4", new Rectangle(165, 98, 261, 137));
+            sceneToMidpointMap.put("Cam 2 1296 4,4", new Point(295, 166));
+            slotOverlayMap.put("Cam21512", new ArrayList<String>());
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 1,1");
+            getSceneToRectMap().put("Cam 2 1512 1,1", new Rectangle(5, 5, 309, 173));
+            sceneToMidpointMap.put("Cam 2 1512 1,1", new Point(159, 91));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 1,2");
+            getSceneToRectMap().put("Cam 2 1512 1,2", new Rectangle(62, 5, 309, 173));
+            sceneToMidpointMap.put("Cam 2 1512 1,2", new Point(216, 91));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 1,3");
+            getSceneToRectMap().put("Cam 2 1512 1,3", new Rectangle(108, 5, 318, 173));
+            sceneToMidpointMap.put("Cam 2 1512 1,3", new Point(267, 91));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 2,1");
+            getSceneToRectMap().put("Cam 2 1512 2,1", new Rectangle(5, 40, 309, 162));
+            sceneToMidpointMap.put("Cam 2 1512 2,1", new Point(159, 121));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 2,2");
+            getSceneToRectMap().put("Cam 2 1512 2,2", new Rectangle(62, 40, 309, 162));
+            sceneToMidpointMap.put("Cam 2 1512 2,2", new Point(216, 121));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 2,3");
+            getSceneToRectMap().put("Cam 2 1512 2,3", new Rectangle(108, 40, 318, 162));
+            sceneToMidpointMap.put("Cam 2 1512 2,3", new Point(267, 121));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 3,1");
+            getSceneToRectMap().put("Cam 2 1512 3,1", new Rectangle(5, 63, 309, 172));
+            sceneToMidpointMap.put("Cam 2 1512 3,1", new Point(159, 149));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 3,2");
+            getSceneToRectMap().put("Cam 2 1512 3,2", new Rectangle(62, 63, 309, 172));
+            sceneToMidpointMap.put("Cam 2 1512 3,2", new Point(216, 149));
+            slotOverlayMap.get("Cam21512").add("Cam 2 1512 3,3");
+            getSceneToRectMap().put("Cam 2 1512 3,3", new Rectangle(108, 63, 318, 172));
+            sceneToMidpointMap.put("Cam 2 1512 3,3", new Point(267, 149));
+            slotOverlayMap.put("Cam21728", new ArrayList<String>());
+            slotOverlayMap.get("Cam21728").add("Cam 2 1728 1,1");
+            getSceneToRectMap().put("Cam 2 1728 1,1", new Rectangle(5, 5, 366, 197));
+            sceneToMidpointMap.put("Cam 2 1728 1,1", new Point(188, 103));
+            slotOverlayMap.get("Cam21728").add("Cam 2 1728 1,2");
+            getSceneToRectMap().put("Cam 2 1728 1,2", new Rectangle(62, 5, 364, 197));
+            sceneToMidpointMap.put("Cam 2 1728 1,2", new Point(244, 103));
+            slotOverlayMap.get("Cam21728").add("Cam 2 1728 2,1");
+            getSceneToRectMap().put("Cam 2 1728 2,1", new Rectangle(5, 40, 366, 195));
+            sceneToMidpointMap.put("Cam 2 1728 2,1", new Point(188, 137));
+            slotOverlayMap.get("Cam21728").add("Cam 2 1728 2,2");
+            getSceneToRectMap().put("Cam 2 1728 2,2", new Rectangle(62, 40, 364, 195));
+            sceneToMidpointMap.put("Cam 2 1728 2,2", new Point(244, 137));
+            slotOverlayMap.put("Cam21944", new ArrayList<String>());
+            slotOverlayMap.get("Cam21944").add("Cam 2 1944 1,1");
+            getSceneToRectMap().put("Cam 2 1944 1,1", new Rectangle(5, 5, 411, 230));
+            sceneToMidpointMap.put("Cam 2 1944 1,1", new Point(210, 120));
+            slotOverlayMap.put("Cam2Slides1080", new ArrayList<String>());
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 1,1");
+            getSceneToRectMap().put("Cam 2 Slides 1080 1,1", new Rectangle(5, 5, 149, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 1,1", new Point(79, 57));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 1,2");
+            getSceneToRectMap().put("Cam 2 Slides 1080 1,2", new Rectangle(51, 5, 160, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 1,2", new Point(131, 57));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 1,3");
+            getSceneToRectMap().put("Cam 2 Slides 1080 1,3", new Rectangle(108, 5, 160, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 1,3", new Point(188, 57));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 1,4");
+            getSceneToRectMap().put("Cam 2 Slides 1080 1,4", new Rectangle(165, 5, 149, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 1,4", new Point(239, 57));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 1,5");
+            getSceneToRectMap().put("Cam 2 Slides 1080 1,5", new Rectangle(211, 5, 160, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 1,5", new Point(291, 57));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 1,6");
+            getSceneToRectMap().put("Cam 2 Slides 1080 1,6", new Rectangle(268, 5, 158, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 1,6", new Point(347, 57));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 2,1");
+            getSceneToRectMap().put("Cam 2 Slides 1080 2,1", new Rectangle(5, 28, 149, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 2,1", new Point(79, 86));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 2,2");
+            getSceneToRectMap().put("Cam 2 Slides 1080 2,2", new Rectangle(51, 28, 160, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 2,2", new Point(131, 86));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 2,3");
+            getSceneToRectMap().put("Cam 2 Slides 1080 2,3", new Rectangle(108, 28, 160, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 2,3", new Point(188, 86));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 2,4");
+            getSceneToRectMap().put("Cam 2 Slides 1080 2,4", new Rectangle(165, 28, 149, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 2,4", new Point(239, 86));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 2,5");
+            getSceneToRectMap().put("Cam 2 Slides 1080 2,5", new Rectangle(211, 28, 160, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 2,5", new Point(291, 86));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 2,6");
+            getSceneToRectMap().put("Cam 2 Slides 1080 2,6", new Rectangle(268, 28, 158, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 2,6", new Point(347, 86));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 3,1");
+            getSceneToRectMap().put("Cam 2 Slides 1080 3,1", new Rectangle(5, 63, 149, 115));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 3,1", new Point(79, 120));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 3,2");
+            getSceneToRectMap().put("Cam 2 Slides 1080 3,2", new Rectangle(51, 63, 160, 115));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 3,2", new Point(131, 120));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 3,3");
+            getSceneToRectMap().put("Cam 2 Slides 1080 3,3", new Rectangle(108, 63, 160, 115));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 3,3", new Point(188, 120));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 3,4");
+            getSceneToRectMap().put("Cam 2 Slides 1080 3,4", new Rectangle(165, 63, 149, 115));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 3,4", new Point(239, 120));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 3,5");
+            getSceneToRectMap().put("Cam 2 Slides 1080 3,5", new Rectangle(211, 63, 160, 115));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 3,5", new Point(291, 120));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 3,6");
+            getSceneToRectMap().put("Cam 2 Slides 1080 3,6", new Rectangle(268, 63, 158, 115));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 3,6", new Point(347, 120));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 4,1");
+            getSceneToRectMap().put("Cam 2 Slides 1080 4,1", new Rectangle(5, 86, 149, 116));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 4,1", new Point(79, 144));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 4,2");
+            getSceneToRectMap().put("Cam 2 Slides 1080 4,2", new Rectangle(51, 98, 160, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 4,2", new Point(131, 150));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 4,3");
+            getSceneToRectMap().put("Cam 2 Slides 1080 4,3", new Rectangle(108, 98, 160, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 4,3", new Point(188, 150));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 4,4");
+            getSceneToRectMap().put("Cam 2 Slides 1080 4,4", new Rectangle(165, 98, 149, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 4,4", new Point(239, 150));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 4,5");
+            getSceneToRectMap().put("Cam 2 Slides 1080 4,5", new Rectangle(211, 98, 160, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 4,5", new Point(291, 150));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 4,6");
+            getSceneToRectMap().put("Cam 2 Slides 1080 4,6", new Rectangle(268, 98, 158, 104));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 4,6", new Point(347, 150));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 5,1");
+            getSceneToRectMap().put("Cam 2 Slides 1080 5,1", new Rectangle(5, 121, 149, 114));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 5,1", new Point(79, 178));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 5,2");
+            getSceneToRectMap().put("Cam 2 Slides 1080 5,2", new Rectangle(51, 121, 160, 114));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 5,2", new Point(131, 178));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 5,3");
+            getSceneToRectMap().put("Cam 2 Slides 1080 5,3", new Rectangle(108, 121, 160, 114));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 5,3", new Point(188, 178));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 5,4");
+            getSceneToRectMap().put("Cam 2 Slides 1080 5,4", new Rectangle(165, 121, 149, 114));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 5,4", new Point(239, 178));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 5,5");
+            getSceneToRectMap().put("Cam 2 Slides 1080 5,5", new Rectangle(211, 121, 160, 114));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 5,5", new Point(291, 178));
+            slotOverlayMap.get("Cam2Slides1080").add("Cam 2 Slides 1080 5,6");
+            getSceneToRectMap().put("Cam 2 Slides 1080 5,6", new Rectangle(268, 121, 158, 114));
+            sceneToMidpointMap.put("Cam 2 Slides 1080 5,6", new Point(347, 178));
+            slotOverlayMap.put("Cam2Slides1296", new ArrayList<String>());
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 1,1");
+            getSceneToRectMap().put("Cam 2 Slides 1296 1,1", new Rectangle(5, 5, 194, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 1,1", new Point(102, 74));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 1,2");
+            getSceneToRectMap().put("Cam 2 Slides 1296 1,2", new Rectangle(51, 5, 205, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 1,2", new Point(153, 74));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 1,3");
+            getSceneToRectMap().put("Cam 2 Slides 1296 1,3", new Rectangle(108, 5, 206, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 1,3", new Point(211, 74));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 1,4");
+            getSceneToRectMap().put("Cam 2 Slides 1296 1,4", new Rectangle(176, 5, 195, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 1,4", new Point(273, 74));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 1,5");
+            getSceneToRectMap().put("Cam 2 Slides 1296 1,5", new Rectangle(234, 5, 192, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 1,5", new Point(330, 74));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 2,1");
+            getSceneToRectMap().put("Cam 2 Slides 1296 2,1", new Rectangle(5, 28, 194, 150));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 2,1", new Point(102, 103));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 2,2");
+            getSceneToRectMap().put("Cam 2 Slides 1296 2,2", new Rectangle(51, 28, 205, 150));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 2,2", new Point(153, 103));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 2,3");
+            getSceneToRectMap().put("Cam 2 Slides 1296 2,3", new Rectangle(108, 28, 206, 150));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 2,3", new Point(211, 103));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 2,4");
+            getSceneToRectMap().put("Cam 2 Slides 1296 2,4", new Rectangle(176, 28, 195, 150));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 2,4", new Point(273, 103));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 2,5");
+            getSceneToRectMap().put("Cam 2 Slides 1296 2,5", new Rectangle(234, 28, 192, 150));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 2,5", new Point(330, 103));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 3,1");
+            getSceneToRectMap().put("Cam 2 Slides 1296 3,1", new Rectangle(5, 63, 194, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 3,1", new Point(102, 132));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 3,2");
+            getSceneToRectMap().put("Cam 2 Slides 1296 3,2", new Rectangle(51, 63, 205, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 3,2", new Point(153, 132));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 3,3");
+            getSceneToRectMap().put("Cam 2 Slides 1296 3,3", new Rectangle(108, 63, 206, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 3,3", new Point(211, 132));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 3,4");
+            getSceneToRectMap().put("Cam 2 Slides 1296 3,4", new Rectangle(176, 63, 195, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 3,4", new Point(273, 132));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 3,5");
+            getSceneToRectMap().put("Cam 2 Slides 1296 3,5", new Rectangle(234, 63, 192, 139));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 3,5", new Point(330, 132));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 4,1");
+            getSceneToRectMap().put("Cam 2 Slides 1296 4,1", new Rectangle(5, 98, 194, 137));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 4,1", new Point(102, 166));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 4,2");
+            getSceneToRectMap().put("Cam 2 Slides 1296 4,2", new Rectangle(51, 98, 205, 137));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 4,2", new Point(153, 166));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 4,3");
+            getSceneToRectMap().put("Cam 2 Slides 1296 4,3", new Rectangle(108, 98, 206, 137));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 4,3", new Point(211, 166));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 4,4");
+            getSceneToRectMap().put("Cam 2 Slides 1296 4,4", new Rectangle(176, 98, 195, 137));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 4,4", new Point(273, 166));
+            slotOverlayMap.get("Cam2Slides1296").add("Cam 2 Slides 1296 4,5");
+            getSceneToRectMap().put("Cam 2 Slides 1296 4,5", new Rectangle(234, 98, 192, 137));
+            sceneToMidpointMap.put("Cam 2 Slides 1296 4,5", new Point(330, 166));
+            slotOverlayMap.put("Cam2Slides1512", new ArrayList<String>());
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 1,1");
+            getSceneToRectMap().put("Cam 2 Slides 1512 1,1", new Rectangle(5, 5, 229, 173));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 1,1", new Point(119, 91));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 1,2");
+            getSceneToRectMap().put("Cam 2 Slides 1512 1,2", new Rectangle(51, 5, 240, 173));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 1,2", new Point(171, 91));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 1,3");
+            getSceneToRectMap().put("Cam 2 Slides 1512 1,3", new Rectangle(96, 5, 229, 173));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 1,3", new Point(210, 91));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 1,4");
+            getSceneToRectMap().put("Cam 2 Slides 1512 1,4", new Rectangle(131, 5, 240, 173));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 1,4", new Point(251, 91));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 1,5");
+            getSceneToRectMap().put("Cam 2 Slides 1512 1,5", new Rectangle(188, 5, 238, 173));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 1,5", new Point(307, 91));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 2,1");
+            getSceneToRectMap().put("Cam 2 Slides 1512 2,1", new Rectangle(5, 28, 229, 174));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 2,1", new Point(119, 115));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 2,2");
+            getSceneToRectMap().put("Cam 2 Slides 1512 2,2", new Rectangle(51, 28, 240, 174));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 2,2", new Point(171, 115));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 2,3");
+            getSceneToRectMap().put("Cam 2 Slides 1512 2,3", new Rectangle(96, 28, 229, 174));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 2,3", new Point(210, 115));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 2,4");
+            getSceneToRectMap().put("Cam 2 Slides 1512 2,4", new Rectangle(131, 28, 240, 174));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 2,4", new Point(251, 115));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 2,5");
+            getSceneToRectMap().put("Cam 2 Slides 1512 2,5", new Rectangle(188, 28, 238, 174));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 2,5", new Point(307, 115));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 3,1");
+            getSceneToRectMap().put("Cam 2 Slides 1512 3,1", new Rectangle(5, 63, 229, 172));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 3,1", new Point(119, 149));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 3,2");
+            getSceneToRectMap().put("Cam 2 Slides 1512 3,2", new Rectangle(51, 63, 240, 172));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 3,2", new Point(171, 149));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 3,3");
+            getSceneToRectMap().put("Cam 2 Slides 1512 3,3", new Rectangle(96, 63, 229, 172));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 3,3", new Point(210, 149));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 3,4");
+            getSceneToRectMap().put("Cam 2 Slides 1512 3,4", new Rectangle(131, 63, 240, 172));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 3,4", new Point(251, 149));
+            slotOverlayMap.get("Cam2Slides1512").add("Cam 2 Slides 1512 3,5");
+            getSceneToRectMap().put("Cam 2 Slides 1512 3,5", new Rectangle(186, 63, 240, 172));
+            sceneToMidpointMap.put("Cam 2 Slides 1512 3,5", new Point(306, 149));
+            slotOverlayMap.put("Cam2Slides1728", new ArrayList<String>());
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 1,1");
+            getSceneToRectMap().put("Cam 2 Slides 1728 1,1", new Rectangle(5, 5, 274, 197));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 1,1", new Point(142, 103));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 1,2");
+            getSceneToRectMap().put("Cam 2 Slides 1728 1,2", new Rectangle(51, 5, 274, 197));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 1,2", new Point(188, 103));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 1,3");
+            getSceneToRectMap().put("Cam 2 Slides 1728 1,3", new Rectangle(96, 5, 275, 197));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 1,3", new Point(233, 103));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 1,4");
+            getSceneToRectMap().put("Cam 2 Slides 1728 1,4", new Rectangle(154, 5, 272, 197));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 1,4", new Point(290, 103));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 2,1");
+            getSceneToRectMap().put("Cam 2 Slides 1728 2,1", new Rectangle(5, 40, 274, 195));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 2,1", new Point(142, 137));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 2,2");
+            getSceneToRectMap().put("Cam 2 Slides 1728 2,2", new Rectangle(51, 40, 274, 195));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 2,2", new Point(188, 137));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 2,3");
+            getSceneToRectMap().put("Cam 2 Slides 1728 2,3", new Rectangle(96, 40, 275, 195));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 2,3", new Point(233, 137));
+            slotOverlayMap.get("Cam2Slides1728").add("Cam 2 Slides 1728 2,4");
+            getSceneToRectMap().put("Cam 2 Slides 1728 2,4", new Rectangle(154, 40, 272, 195));
+            sceneToMidpointMap.put("Cam 2 Slides 1728 2,4", new Point(290, 137));
+            slotOverlayMap.put("Cam2Slides1944", new ArrayList<String>());
+            slotOverlayMap.get("Cam2Slides1944").add("Cam 2 Slides 1944 1,1");
+            getSceneToRectMap().put("Cam 2 Slides 1944 1,1", new Rectangle(5, 5, 309, 230));
+            sceneToMidpointMap.put("Cam 2 Slides 1944 1,1", new Point(159, 120));
+            slotOverlayMap.get("Cam2Slides1944").add("Cam 2 Slides 1944 1,2");
+            getSceneToRectMap().put("Cam 2 Slides 1944 1,2", new Rectangle(62, 5, 309, 230));
+            sceneToMidpointMap.put("Cam 2 Slides 1944 1,2", new Point(216, 120));
+            slotOverlayMap.get("Cam2Slides1944").add("Cam 2 Slides 1944 1,3");
+            getSceneToRectMap().put("Cam 2 Slides 1944 1,3", new Rectangle(108, 5, 318, 230));
+            sceneToMidpointMap.put("Cam 2 Slides 1944 1,3", new Point(267, 120));
+        }
+
+        @Override
+        protected void changeToScene(String scene) {
+            ObsAutomation.this.changeToScene(scene);
+        }
+    };
+
+    private SlotPanel fourthSlotPanel = new SlotPanel() {
+        @Override
+        protected void codeFromObsAutomationUtility() {
+            slotThumbRect = new Rectangle(699, 276, 212, 117);
+
+            slotOverlayMap.put("SD11080", new ArrayList<String>());
+            slotOverlayMap.get("SD11080").add("SD 1 1080 1,1");
+            getSceneToRectMap().put("SD 1 1080 1,1", new Rectangle(5, 5, 411, 230));
+            sceneToMidpointMap.put("SD 1 1080 1,1", new Point(210, 120));
+            slotOverlayMap.put("SD1Slides1080", new ArrayList<String>());
+            slotOverlayMap.get("SD1Slides1080").add("SD 1 Slides 1080 1,1");
+            getSceneToRectMap().put("SD 1 Slides 1080 1,1", new Rectangle(5, 5, 309, 221));
+            sceneToMidpointMap.put("SD 1 Slides 1080 1,1", new Point(159, 115));
+            slotOverlayMap.get("SD1Slides1080").add("SD 1 Slides 1080 1,2");
+            getSceneToRectMap().put("SD 1 Slides 1080 1,2", new Rectangle(62, 5, 309, 221));
+            sceneToMidpointMap.put("SD 1 Slides 1080 1,2", new Point(216, 115));
+            slotOverlayMap.get("SD1Slides1080").add("SD 1 Slides 1080 1,3");
+            getSceneToRectMap().put("SD 1 Slides 1080 1,3", new Rectangle(108, 5, 308, 221));
+            sceneToMidpointMap.put("SD 1 Slides 1080 1,3", new Point(262, 115));
+        }
+
+        @Override
+        protected void changeToScene(String scene) {
+            ObsAutomation.this.changeToScene(scene);
+        }
+    };
+
+    static OBSRemoteController controller = new OBSRemoteController("ws://localhost:4444", false, "crefObsWebsockets", true);
+    public static Comparator overlaySorter = new Comparator<String>() {
+        @Override
+        public int compare(String t, String t1) {
+            return t.compareTo(t1);
+        }
+    };
+
+    Callback<SetCurrentSceneResponse> callback = new Callback<SetCurrentSceneResponse>() {
+        @Override
+        public void run(SetCurrentSceneResponse rt) {
+            if (rt.getError() != null) {
+                System.out.println("Set Current Scene Error: " + rt.getError());
+            }
+
+        }
+    };
+    private Callback<SetTransitionDurationResponse> responseCallback = new Callback<SetTransitionDurationResponse>() {
+        @Override
+        public void run(SetTransitionDurationResponse rt) {
+            if (rt.getError() != null) {
+                System.out.println("Transition Duration Error: " + rt.getError());
+            }
+        }
+    };
+
+    private static String currentScene = "";
+
+    BufferedImage slideImage;
+    BufferedImage slideLabelImage;
+    BufferedImage prevSlideImage;
+    int requiredColorDifference = 20;
+    private long newSlideTime;
+    boolean cancelWorshipSetTimer = true;
+    boolean cancelAutopilot = true;
+    boolean autoPilotStarted = false;
+    int worshipSetTimerLength = 0;
+
+    Rectangle programRectangle = new Rectangle(482, 32, 429, 239);
+
+    private static int diffCount = 0;
+    private static long slideSwitchOffTime = 0;
+
+    private boolean isDifferent(int rgb, int rgb0) {
+        return isDifferent(rgb, rgb0, requiredColorDifference);
+    }
+
+    private boolean isDifferent(int rgb, int rgb0, int requiredColorDifference) {
+        int r = (rgb >> 16) & 0xFF;
+        int g = (rgb >> 8) & 0xFF;
+        int b = (rgb) & 0xFF;
+
+        int r0 = (rgb0 >> 16) & 0xFF;
+        int g0 = (rgb0 >> 8) & 0xFF;
+        int b0 = (rgb0) & 0xFF;
+
+        boolean redDiff = Math.abs(r0 - r) > requiredColorDifference;
+        boolean greenDiff = Math.abs(g0 - g) > requiredColorDifference;
+        boolean blueDiff = Math.abs(b0 - b) > requiredColorDifference;
+
+        if (redDiff) {
+            if (greenDiff || blueDiff) {
+                return true;
+            }
+        }
+
+        return greenDiff && blueDiff;
+    }
+
+    Rectangle slideRectangle = new Rectangle(265, 276, 213, 118);
+
+    private void postInitComponents() {
+        if (controller.isFailed()) { // Awaits response from OBS
+            // Here you can handle a failed connection request
+            System.out.println("CONNECTION TO OBS FAILED");
+        }
+        Callback<GetCurrentSceneResponse> getSceneCallback = new Callback<GetCurrentSceneResponse>() {
+            @Override
+            public void run(GetCurrentSceneResponse rt) {
+                System.out.println(rt.getName());
+                currentScene = rt.getName();
+            }
+        };
+
+        controller.getCurrentScene(getSceneCallback);
+
+        controller.registerSwitchScenesCallback(new Callback<SwitchScenesResponse>() {
+            @Override
+            public void run(SwitchScenesResponse rt) {
+                currentScene = rt.getSceneName();
+                if (switchToSlides) {
+                    switchToSlides = false;
+                    Thread t = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(100);
+                            } catch (InterruptedException ex) {
+                                Logger.getLogger(ObsAutomation.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                            controller.setTransitionDuration(fadeSlider.getValue(), responseCallback);
+                            controller.changeSceneWithTransition("Slides With Overlay", "Fade", callback);
+                        }
+                    });
+                    t.start();
+                }
+                setInTransition(false);
+            }
+        });
+
+        overlaySwitchButton.setIcon(new ImageIcon(SlideState.SLIDE_COMBO.getOverlayImage()));
+        overlaySwitchButton.setText("");
+        overlaySwitchButton1.setIcon(new ImageIcon(SlideState.NO_SLIDE.getOverlayImage()));
+        overlaySwitchButton1.setText("");
+
+        pickerPanel.add(firstSlotPanel);
+        pickerPanel.add(thirdSlotPanel);
+        pickerPanel.add(fourthSlotPanel);
+
+        fullSlidesButton.setText("");
+
+//        Thread t = new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                while (true) {
+//                    fullSlidesButton.setIcon(new ImageIcon(robot.createScreenCapture(new Rectangle(new Point(265, 280), new Dimension(210, 113)))));
+//                    
+//                    try {
+//                        Thread.sleep(1000);
+//                    } catch (InterruptedException ex) {
+//                        Logger.getLogger(ObsAutomationTwo.class.getName()).log(Level.SEVERE, null, ex);
+//                    }
+//                }
+//            }
+//        });
+//        t.start();
+        Thread slideThread = new Thread(new Runnable() {
+
+            Rectangle slideCheckRectangle = new Rectangle(70, 5, 20, 110);
+
+            @Override
+            public void run() {
+                prevSlideImage = null;
+                boolean prevNotADifference = true;
+                while (true) {
+                    slideImage = robot.createScreenCapture(slideRectangle);
+                    slideLabelImage = robot.createScreenCapture(slideRectangle);
+
+                    Graphics g = slideLabelImage.getGraphics();
+                    g.setColor(Color.RED);
+                    g.drawRect(slideCheckRectangle.x, slideCheckRectangle.y, slideCheckRectangle.width, slideCheckRectangle.height);
+
+                    if (prevSlideImage != null) {
+                        boolean slideDifference = false;
+                        for (int i = slideCheckRectangle.x; i < slideCheckRectangle.width + slideCheckRectangle.x && !slideDifference; i++) {
+                            for (int j = slideCheckRectangle.y; j < slideCheckRectangle.height + slideCheckRectangle.y && !slideDifference; j++) {
+                                if (isDifferent(slideImage.getRGB(i, j), prevSlideImage.getRGB(i, j))) {
+                                    slideDifference = true;
+                                }
+                            }
+                        }
+
+                        if (slideDifference) {
+                            if (prevNotADifference) {
+                                newSlideTime = System.currentTimeMillis();
+
+                                boolean switched = false;
+
+                                if (!cancelAutopilot) {
+                                    int prevRGB = slideImage.getRGB(slideCheckRectangle.x, slideCheckRectangle.y);
+                                    int currRGB;
+                                    diffCount = 0;
+                                    for (int j = slideCheckRectangle.y + 1; j < slideCheckRectangle.height + slideCheckRectangle.y; j++) {
+                                        currRGB = slideImage.getRGB(slideCheckRectangle.x, j);
+                                        if (isDifferent(currRGB, prevRGB)) {
+                                            diffCount++;
+                                        }
+                                        prevRGB = currRGB;
+                                    }
+
+                                    System.out.println("New Slide. " + diffCount);
+                                    if (!slideState.equals(SlideState.FULL_SLIDES)) {
+                                        if (autoPilotStarted) {
+                                            switched = true;
+                                            changeToScene("Slides With Overlay");
+                                            setSlideState(SlideState.FULL_SLIDES);
+                                        } else {
+                                            System.out.println("autopilot switch to Slides With Overlay");
+                                        }
+                                    }
+
+                                    slideSwitchOffTime = System.currentTimeMillis() + (slideMultiplierSlider.getValue() * diffCount);
+
+                                }
+                                try {
+                                    if (!switched) {
+                                        if (!cancelAutoSlideSwitch) {
+                                            if (slideState.equals(SlideState.NO_SLIDE)) {
+                                                fullSlidesButton.doClick();
+                                            }
+                                        } else {
+                                            slidesPanel.setOpaque(true);
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+
+                                prevNotADifference = false;
+
+                            }
+                        } else {
+                            prevNotADifference = true;
+                        }
+                    }
+
+                    fullSlidesButton.setIcon(new ImageIcon(slideLabelImage));
+                    prevSlideImage = slideImage;
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException ex) {
+                        ex.printStackTrace();
+                    }
+                }
+
+            }
+        });
+        slideThread.start();
+
+        fadeLabel.setText(fadeSlider.getValue() + " ms");
+        moveLabel.setText(moveSlider.getValue() + " ms");
+
+        setLocation(960, 0);
+        setSize(new Dimension(950, 1000));
+        setSlideState(SlideState.NO_SLIDE);
+        jLabel15.setText(firstSceneLabel.replaceAll(Pattern.quote("<%SCENE%>"), firstScene));
+    }
+
+    boolean inTransition = false;
+
+    private void changeToScene(String scene) {
+        if (currentScene.equals(scene)) {
+            return;
+        }
+        String transitionType = "Fade";
+        int duration = 1000;
+        if (scene.equals("Slides (No Audio Broadcast)") || currentScene.equals("Slides (No Audio Broadcast)")) {
+            transitionType = "Fade";
+        } else if (currentScene.contains("Slide")) {
+            if (scene.contains("Slide")) {
+                if ("Slides With Overlay".equals(currentScene) || "Slides With Overlay".equals(scene) || currentScene.substring(0, 7).equals(scene.substring(0, 7))) {
+                    transitionType = "Slow Move";
+                } else {
+                    transitionType = "Fade";
+                }
+            } else {
+                transitionType = "Fade";
+            }
+        } else {
+            if (scene.contains("Slide")) {
+                transitionType = "Fade";
+            } else {
+                try {
+                    if (currentScene.substring(0, 7).equals(scene.substring(0, 7))) {
+                        transitionType = "Slow Move";
+                    } else {
+                        transitionType = "Fade";
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        if (transitionType.equals("Slow Move")) {
+            duration = moveSlider.getValue();
+        } else if (transitionType.equals("Fade")) {
+            duration = fadeSlider.getValue();
+        }
+
+        if (inTransition) {
+            if ("Slides With Overlay".equals(scene) && !currentScene.contains("Slide")) {
+                switchToSlides = true;
+            } else {
+                if (transitionType.equals("Fade")) {
+                    controller.changeSceneWithTransition(scene, "Cut", callback);
+                } else {
+                    System.out.println("We're in transition. Do nothing");
+                }
+            }
+        } else {
+            if (setInTransition(true)) {
+                controller.setTransitionDuration(duration, responseCallback);
+                controller.changeSceneWithTransition(scene, transitionType, callback);
+            }
+        }
+    }
+
+    private synchronized boolean setInTransition(boolean b) {
+        if (b == true && inTransition == true) {
+            return false;
+        }
+        inTransition = b;
+        return true;
     }
 }
