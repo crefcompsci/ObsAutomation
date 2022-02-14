@@ -1,5 +1,8 @@
 package org.coonrapidsfree.obs;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.awt.AWTException;
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
@@ -16,6 +19,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -52,9 +58,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
         }
     }
 
-    static OBSRemoteController controller = new OBSRemoteController("ws://localhost:4444", false, "crefObsWebsockets", true);
 //    OBSRemoteController controller = new OBSRemoteController("ws://localhost:4444", false);
-
     Callback<SetCurrentSceneResponse> callback = new Callback<SetCurrentSceneResponse>() {
         @Override
         public void run(SetCurrentSceneResponse rt) {
@@ -77,10 +81,67 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
     private static String currentSceneName = null;
     private static List<String> sceneList = new ArrayList<String>();
 
+    public static final int THUMBS_FIRST_LINE_Y = 276;
+    public static final int THUMBS_SECOND_LINE_Y = 398;
+    public static final int THUMBS_WIDTH = 212;
+    public static final int THUMBS_HEIGHT = 117;
+
+    public static final int THUMBS_FIRST_COL_X = 48;
+    public static final int THUMBS_SECOND_COL_X = 265;
+    public static final int THUMBS_THIRD_COL_X = 482;
+    public static final int THUMBS_FORTH_COL_X = 699;
+
+    private static Map<String, Rectangle> sceneToCornersMap;
+
+    private static List<String> sceneNames = new ArrayList<String>();
+
+    public static List<String> getSceneNames() {
+        if (sceneNames.isEmpty()) {
+            getSceneToCornersMap();
+        }
+        return sceneNames;
+    }
+
+    public static Map<String, Rectangle> getSceneToCornersMap() {
+        if (allScenes == null) {
+            initScenes();
+        }
+        if (sceneToCornersMap == null) {
+            sceneToCornersMap = new HashMap<String, Rectangle>();
+
+            for (int i = 0; i < allScenes.size() && i < 8; i++) {
+                sceneNames.add(allScenes.get(i));
+                if (i == 0) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_FIRST_COL_X, THUMBS_FIRST_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 1) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_SECOND_COL_X, THUMBS_FIRST_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 2) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_THIRD_COL_X, THUMBS_FIRST_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 3) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_FORTH_COL_X, THUMBS_FIRST_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 4) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_FIRST_COL_X, THUMBS_SECOND_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 5) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_SECOND_COL_X, THUMBS_SECOND_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 6) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_THIRD_COL_X, THUMBS_SECOND_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                } else if (i == 7) {
+                    sceneToCornersMap.put(allScenes.get(i), new Rectangle(THUMBS_FORTH_COL_X, THUMBS_SECOND_LINE_Y, THUMBS_WIDTH, THUMBS_HEIGHT));
+                }
+            }
+        }
+        return sceneToCornersMap;
+
+    }
+
+    private OBSRemoteController controller;
+
     /**
      * Creates new form ObsAutomationOne
      */
-    public ObsAutomationUtility() {
+    public ObsAutomationUtility(OBSRemoteController controller) {
+        this.controller = controller;
+        initScenes();
         initComponents();
 
         if (controller.isFailed()) { // Awaits response from OBS
@@ -96,63 +157,55 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
 
         controller.getCurrentScene(getSceneCallback);
 
-        final String tempSceneName = "Cam1TS";
-//        final String tempSceneName = "Cam2TS";
-//        final String tempSceneName = "SD1TS";
+        getSceneToCornersMap();
 
-        int rows = 1;//5
-        int columns = 3;//6
-        String prefix = "Cam 1 ";
-//        String prefix = "SD 1 ";
-        List<String> prefix2 = new ArrayList<String>();
-        prefix2.add("");
-//        prefix2.add("Slides ");
-        List<String> mid = new ArrayList<String>();
-//        mid.add("1080 ");
-        mid.add("1296 ");
-//        mid.add("1512 ");
-        mid.add("1728 ");
-//        mid.add("1944 ");
+        for (String sceneName : sceneNames) {
+            final String tempSceneName = sceneName;
+            JButton temp = new JButton(tempSceneName);
+            temp.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent ae) {
+                    ObsAutomationUtility.this.controller.changeSceneWithTransition(tempSceneName, "Cut", callback);
+                    currentSceneName = tempSceneName;
 
-        JButton temp = new JButton(tempSceneName);
-        temp.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent ae) {
-                controller.changeSceneWithTransition(tempSceneName, "Cut", callback);
-                currentSceneName = tempSceneName;
+                    //save scene info
+                    clickCount = 0;
+                    BufferedImage screenCapture = robot.createScreenCapture(new Rectangle(new Point(0, 0), Toolkit.getDefaultToolkit().getScreenSize()));
+                    JLabel l = new JLabel(new ImageIcon(ImageUtilities.getImage(screenCapture, increase, 0)));
+                    l.addMouseListener(new MouseAdapter() {
+                        @Override
+                        public void mousePressed(MouseEvent me) {
+                            messagePanel.setVisible(false);
+                            messagePanel.removeAll();
 
-                //save scene info
-                clickCount = 0;
-                BufferedImage screenCapture = robot.createScreenCapture(new Rectangle(new Point(0, 0), Toolkit.getDefaultToolkit().getScreenSize()));
-                JLabel l = new JLabel(new ImageIcon(ImageUtilities.getImage(screenCapture, increase, 0)));
-                l.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mousePressed(MouseEvent me) {
-                        clickCount++;
-                        messagePanel.setVisible(false);
-                        messagePanel.removeAll();
-                        if (clickCount == 1) {
-                            thumbX = me.getX() / (int) increase;
-                            thumbY = me.getY() / (int) increase;
-                            messagePanel.add(new JLabel("press the lower right corner of the thumbnail of " + tempSceneName));
-                        } else if (clickCount == 2) {
-                            thumbW = me.getX() / (int) increase;
-                            thumbW -= thumbX;
-                            thumbH = me.getY() / (int) increase;
-                            thumbH -= thumbY;
-                            messagePanel.add(new JLabel("press the upper left corner of Program"));
-                        } else if (clickCount == 3) {
-                            programX = me.getX() / (int) increase;
-                            programY = me.getY() / (int) increase;
-                            messagePanel.add(new JLabel("press the lower right corner of Program"));
-                        } else if (clickCount == 4) {
-                            programW = me.getX() / (int) increase;
-                            programW -= programX;
-                            programH = me.getY() / (int) increase;
-                            programH -= programY;
+//                            clickCount++;
+//                            if (clickCount == 1) {
+//                                thumbX = me.getX() / (int) increase;
+//                                thumbY = me.getY() / (int) increase;
+//                                messagePanel.add(new JLabel("press the lower right corner of the thumbnail of " + tempSceneName));}
+//                             else if (clickCount == 2) {
+//                                thumbW = me.getX() / (int) increase;
+//                                thumbW -= thumbX;
+//                                thumbH = me.getY() / (int) increase;
+//                                thumbH -= thumbY;
+//                                messagePanel.add(new JLabel("press the upper left corner of Program"));}
+//                             else if (clickCount == 3) {
+//                                programX = me.getX() / (int) increase;
+//                                programY = me.getY() / (int) increase;
+//                                messagePanel.add(new JLabel("press the lower right corner of Program"));
+//                            } else if (clickCount == 4) {
+//                                programW = me.getX() / (int) increase;
+//                                programW -= programX;
+//                                programH = me.getY() / (int) increase;
+//                                programH -= programY;
+                            Rectangle r = sceneToCornersMap.get(tempSceneName);
+                            thumbX = r.x;
+                            thumbY = r.y;
+                            thumbW = r.width;
+                            thumbH = r.height;
 
                             System.out.println("Thumb: (" + thumbX + ", " + thumbY + ", " + thumbW + ", " + thumbH + ")");
-                            System.out.println("Program: (" + programX + ", " + programY + ", " + programW + ", " + programH + ")");
+                            System.out.println("Program: (" + PROGRAM_X + ", " + PROGRAM_Y + ", " + PROGRAM_W + ", " + PROGRAM_H + ")");
                             JButton temp = new JButton("Parse");
                             temp.addActionListener(new ActionListener() {
                                 @Override
@@ -167,83 +220,83 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
 
                             thumbCapture = robot.createScreenCapture(new Rectangle(thumbX, thumbY, thumbW, thumbH));
                             imagePanel.add(new JLabel(new ImageIcon(thumbCapture)), BorderLayout.NORTH);
-                            programCapture = robot.createScreenCapture(new Rectangle(programX, programY, programW, programH));
+                            programCapture = robot.createScreenCapture(new Rectangle(PROGRAM_X, PROGRAM_Y, PROGRAM_W, PROGRAM_H));
                             Graphics2D g2d = (Graphics2D) programCapture.getGraphics();
                             g2d.setColor(Color.BLACK);
-                            g2d.fillRect(672 - programX, 238 - programY, 49, 15);
+                            g2d.fillRect(672 - PROGRAM_X, 238 - PROGRAM_Y, 49, 15);
                             imagePanel.add(new JLabel(new ImageIcon(programCapture)), BorderLayout.CENTER);
 
-                        }
-
-                        SwingUtilities.invokeLater(new Runnable() {
-                            @Override
-                            public void run() {
-                                messagePanel.setVisible(true);
-                                imagePanel.setVisible(true);
-                                repaint();
-                            }
-                        });
-                    }
-
-                });
-                imagePanel.removeAll();
-                imagePanel.setVisible(false);
-                imagePanel.add(l, BorderLayout.CENTER);
-                messagePanel.setVisible(false);
-                messagePanel.removeAll();
-                messagePanel.add(new JLabel("press the upper left corner of the thumbnail of " + tempSceneName));
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        messagePanel.setVisible(true);
-                        imagePanel.setVisible(true);
-                        repaint();
-                    }
-                });
-            }
-        });
-        jPanel1.add(temp);
-        for (String pref2 : prefix2) {
-            for (String midpoint : mid) {
-                String scenePrefix = prefix + pref2 + midpoint;
-                for (int i = 1; i <= rows; i++) {
-                    for (int j = 1; j <= columns; j++) {
-                        final String sceneName = scenePrefix + i + "," + j + ".5";
-                        try {
-                            Thread.sleep(500);
-                        } catch (InterruptedException ex) {
-                            Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                        System.out.println(sceneName);
-                        controller.setCurrentScene(sceneName, new Callback<SetCurrentSceneResponse>() {
-                            @Override
-                            public void run(SetCurrentSceneResponse rt) {
-                                System.out.println(rt.getStatus());
-                                if (rt.getStatus().equals("ok")) {
-                                    sceneList.add(sceneName);
-                                    JButton temp = new JButton(sceneName);
-                                    temp.addActionListener(new ActionListener() {
-                                        @Override
-                                        public void actionPerformed(ActionEvent ae) {
-                                            controller.changeSceneWithTransition(sceneName, "Cut", callback);
-                                        }
-                                    });
-                                    jPanel1.add(temp);
-                                    SwingUtilities.invokeLater(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            jPanel1.setVisible(true);
-                                        }
-                                    });
-                                } else if((rt.getStatus().equals("error"))) {
-                                    System.out.println("scene doesn't exist.");
+//                            }
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    messagePanel.setVisible(true);
+                                    imagePanel.setVisible(true);
+                                    repaint();
                                 }
-                            }
-                        });
-                    }
+                            });
+                        }
+
+                    });
+                    imagePanel.removeAll();
+                    imagePanel.setVisible(false);
+                    imagePanel.add(l, BorderLayout.CENTER);
+                    messagePanel.setVisible(false);
+                    messagePanel.removeAll();
+                    messagePanel.add(new JLabel("press the upper left corner of the thumbnail of " + tempSceneName));
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            messagePanel.setVisible(true);
+                            imagePanel.setVisible(true);
+                            repaint();
+                        }
+                    });
                 }
-            }
+            });
+            jPanel1.add(temp);
         }
+//        for (String pref2 : prefix2) {
+//            for (String midpoint : mid) {
+//                String scenePrefix = prefix + pref2 + midpoint;
+//                for (int i = 1; i <= rows; i++) {
+//                    for (int j = 1; j <= columns; j++) {
+//                        final String sceneName = scenePrefix + i + "," + j + ".5";
+//                        try {
+//                            Thread.sleep(500);
+//                        } catch (InterruptedException ex) {
+//                            Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
+//                        }
+//                        System.out.println(sceneName);
+//                        controller.setCurrentScene(sceneName, new Callback<SetCurrentSceneResponse>() {
+//                            @Override
+//                            public void run(SetCurrentSceneResponse rt) {
+//                                System.out.println(rt.getStatus());
+//                                if (rt.getStatus().equals("ok")) {
+//                                    sceneList.add(sceneName);
+//                                    JButton temp = new JButton(sceneName);
+//                                    temp.addActionListener(new ActionListener() {
+//                                        @Override
+//                                        public void actionPerformed(ActionEvent ae) {
+//                                            controller.changeSceneWithTransition(sceneName, "Cut", callback);
+//                                        }
+//                                    });
+//                                    jPanel1.add(temp);
+//                                    SwingUtilities.invokeLater(new Runnable() {
+//                                        @Override
+//                                        public void run() {
+//                                            jPanel1.setVisible(true);
+//                                        }
+//                                    });
+//                                } else if ((rt.getStatus().equals("error"))) {
+//                                    System.out.println("scene doesn't exist.");
+//                                }
+//                            }
+//                        });
+//                    }
+//                }
+//            }
+//        }
 
 //        controller.getScenes(new Callback<GetSceneListResponse>() {
 //            @Override
@@ -397,10 +450,10 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
     static int thumbW = 0;
     static int thumbH = 0;
 
-    static int programX = 0;
-    static int programY = 0;
-    static int programW = 0;
-    static int programH = 0;
+    public static final int PROGRAM_X = 482;
+    public static final int PROGRAM_Y = 32;
+    public static final int PROGRAM_W = 429;
+    public static final int PROGRAM_H = 240;
     static BufferedImage programCapture;
     static BufferedImage thumbCapture;
 
@@ -497,15 +550,18 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
         }
 
         String origSceneName = currentSceneName;
-        for (String key : ObsAutomationUtility.sceneList) {
+        for (String key : ObsAutomationUtility.allScenes) {
+            if (key.toUpperCase().equals(key)) {
+                continue;
+            }
             controller.changeSceneWithTransition(key, "Cut", callback);
             try {
-                Thread.sleep(1000);
+                Thread.sleep(500);
             } catch (InterruptedException ex) {
                 Logger.getLogger(ObsAutomationUtility.class.getName()).log(Level.SEVERE, null, ex);
             }
 
-            BufferedImage tempProgram = robot.createScreenCapture(new Rectangle(programX, programY, programW, programH));
+            BufferedImage tempProgram = robot.createScreenCapture(new Rectangle(PROGRAM_X, PROGRAM_Y, PROGRAM_W, PROGRAM_H));
             imagePanel.add(new JLabel(new ImageIcon(tempProgram)), BorderLayout.SOUTH);
             imagePanel.setVisible(false);
             SwingUtilities.invokeLater(new Runnable() {
@@ -519,7 +575,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
     }
 
     private void analyzeProgramImage(Map<Integer, Point> basePixelToPoint, final String sceneName) {
-        BufferedImage tempProgram = robot.createScreenCapture(new Rectangle(programX, programY, programW, programH));
+        BufferedImage tempProgram = robot.createScreenCapture(new Rectangle(PROGRAM_X, PROGRAM_Y, PROGRAM_W, PROGRAM_H));
 
         Map<Integer, Integer> pixelMap = new HashMap<Integer, Integer>();
         Map<Integer, List<Point>> pixelToPoint = new HashMap<Integer, List<Point>>();
@@ -742,20 +798,48 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        jButton1 = new javax.swing.JButton();
+        jButton2 = new javax.swing.JButton();
+        jButton3 = new javax.swing.JButton();
+        jButton4 = new javax.swing.JButton();
         jScrollPane1 = new javax.swing.JScrollPane();
         jPanel1 = new javax.swing.JPanel();
         jPanel2 = new javax.swing.JPanel();
         jScrollPane2 = new javax.swing.JScrollPane();
         imagePanel = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
-        jButton1 = new javax.swing.JButton();
-        jButton2 = new javax.swing.JButton();
         messagePanel = new javax.swing.JPanel();
-        jButton3 = new javax.swing.JButton();
-        jButton4 = new javax.swing.JButton();
         jScrollPane3 = new javax.swing.JScrollPane();
         tempImagePanel = new javax.swing.JPanel();
         jLabel1 = new javax.swing.JLabel();
+
+        jButton1.setText("Test 1");
+        jButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton1ActionPerformed(evt);
+            }
+        });
+
+        jButton2.setText("Test visibility");
+        jButton2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton2ActionPerformed(evt);
+            }
+        });
+
+        jButton3.setText("First");
+        jButton3.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton3ActionPerformed(evt);
+            }
+        });
+
+        jButton4.setText("SceneList");
+        jButton4.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jButton4ActionPerformed(evt);
+            }
+        });
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
 
@@ -773,38 +857,7 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
 
         getContentPane().add(jPanel2, java.awt.BorderLayout.CENTER);
 
-        jButton1.setText("jButton1");
-        jButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton1ActionPerformed(evt);
-            }
-        });
-        jPanel3.add(jButton1);
-
-        jButton2.setText("jButton2");
-        jButton2.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton2ActionPerformed(evt);
-            }
-        });
-        jPanel3.add(jButton2);
         jPanel3.add(messagePanel);
-
-        jButton3.setText("First");
-        jButton3.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton3ActionPerformed(evt);
-            }
-        });
-        jPanel3.add(jButton3);
-
-        jButton4.setText("SceneList");
-        jButton4.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                jButton4ActionPerformed(evt);
-            }
-        });
-        jPanel3.add(jButton4);
 
         getContentPane().add(jPanel3, java.awt.BorderLayout.NORTH);
 
@@ -943,11 +996,6 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
         thumbW = 212;
         thumbH = 117;
 
-        programX = 482;
-        programY = 32;
-        programW = 429;
-        programH = 239;
-
 //third slot:
 //Thumb: (482, 276, 212, 117)
 //Program: (482, 32, 429, 239)
@@ -961,7 +1009,6 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
 //        programY = 32;
 //        programW = 429;
 //        programH = 239;
-        
 //4th slot:
 //Thumb: 699, 276, 212, 117
 //slotName = "fourthSlot";
@@ -969,12 +1016,9 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
 //        thumbY = 276;
 //        thumbW = 212;
 //        thumbH = 117;
-
-        
-        
         jButton3.setVisible(false);
 
-        System.out.println("private static Rectangle programRect = new Rectangle(" + programX + ", " + programY + ", " + programW + ", " + programH + ");");
+        System.out.println("private static Rectangle programRect = new Rectangle(" + PROGRAM_X + ", " + PROGRAM_Y + ", " + PROGRAM_W + ", " + PROGRAM_H + ");");
 //        System.out.println("private static Map<String, List<String>>" + slotName + "OverlayMap = new HashMap<String, List<String>>();");
         System.out.println("slotThumbRect = new Rectangle(" + thumbX + ", " + thumbY + ", " + thumbW + ", " + thumbH + ");\n\n\n");
         final JButton temp = new JButton("Parse");
@@ -998,10 +1042,10 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
 
         thumbCapture = robot.createScreenCapture(new Rectangle(thumbX, thumbY, thumbW, thumbH));
         imagePanel.add(new JLabel(new ImageIcon(thumbCapture)), BorderLayout.NORTH);
-        programCapture = robot.createScreenCapture(new Rectangle(programX, programY, programW, programH));
+        programCapture = robot.createScreenCapture(new Rectangle(PROGRAM_X, PROGRAM_Y, PROGRAM_W, PROGRAM_H));
         Graphics2D g2d = (Graphics2D) programCapture.getGraphics();
         g2d.setColor(Color.BLACK);
-        g2d.fillRect(672 - programX, 238 - programY, 49, 15);
+        g2d.fillRect(672 - PROGRAM_X, 238 - PROGRAM_Y, 49, 15);
 
         imagePanel.add(new JLabel(new ImageIcon(programCapture)), BorderLayout.CENTER);
         SwingUtilities.invokeLater(new Runnable() {
@@ -1050,7 +1094,8 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             public void run() {
-                new ObsAutomationUtility().setVisible(true);
+                OBSRemoteController controller = new OBSRemoteController("ws://localhost:4444", false, "crefObsWebsockets", true);
+                new ObsAutomationUtility(controller).setVisible(true);
             }
         });
     }
@@ -1071,4 +1116,48 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
     private javax.swing.JPanel messagePanel;
     private javax.swing.JPanel tempImagePanel;
     // End of variables declaration//GEN-END:variables
+
+    static List<String> allScenes;
+
+    private static void initScenes() {
+        if (allScenes != null) {
+            return;
+        }
+
+        try {
+//Build out scenes in CREFScenesBase based on the pattern SceneGroupName x maxX, maxY with one of the combo scenes present
+//Copy the json output of this file to CREFScenesBuilt.json and import those scenes back into OBS
+            File f = new File("src/obsautomation/CREFScenesBuilt.json");
+//            System.out.println(f.getAbsolutePath());
+            FileReader fr = new FileReader(f);
+            BufferedReader br = new BufferedReader(fr);
+
+            StringBuilder sb = new StringBuilder();
+            String eachLine = br.readLine();
+
+            while (eachLine != null) {
+                sb.append(eachLine);
+                sb.append("\n");
+                eachLine = br.readLine();
+            }
+//            System.out.println(sb.toString());
+
+            JsonParser parser = new JsonParser();
+            JsonObject json = parser.parse(sb.toString()).getAsJsonObject();
+
+            JsonArray scenesJson = json.getAsJsonArray("scene_order");
+            allScenes = new ArrayList<String>(scenesJson.size());
+            for (int i = 0; i < scenesJson.size(); i++) {
+                allScenes.add(scenesJson.get(i).getAsJsonObject().get("name").getAsString());
+            }
+
+            System.out.println(allScenes);
+
+            if (allScenes.contains("COMBO SCENE 1") && allScenes.contains("COMBO SCENE 2")) {
+                System.out.println("Done");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
