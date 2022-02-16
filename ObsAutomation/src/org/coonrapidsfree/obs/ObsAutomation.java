@@ -9,6 +9,7 @@ import java.awt.Window;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,6 +47,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     private String firstSceneLabel = "<html><body><%SCENE%> will be automatically pressed.<br/>";
 
     private boolean switchToSlides;
+    private List<BufferedImage> blankSlides = new ArrayList<BufferedImage>();
 
     /**
      * Creates new form ObsAutomationTwo
@@ -84,33 +86,24 @@ public class ObsAutomation extends javax.swing.JFrame {
         jLabel21 = new javax.swing.JLabel();
         errorDialog = new javax.swing.JDialog();
         errorDialogLabel = new javax.swing.JLabel();
-        pickerDialog = new javax.swing.JDialog();
+        controlDialog = new javax.swing.JDialog();
         jPanel2 = new javax.swing.JPanel();
         jPanel6 = new javax.swing.JPanel();
         jPanel7 = new javax.swing.JPanel();
         jPanel3 = new javax.swing.JPanel();
         jPanel10 = new javax.swing.JPanel();
         jPanel11 = new javax.swing.JPanel();
-        jPanel33 = new javax.swing.JPanel();
-        jPanel4 = new javax.swing.JPanel();
-        overlaySwitchButton = new javax.swing.JButton();
-        overlaySwitchButton1 = new javax.swing.JButton();
-        jPanel5 = new javax.swing.JPanel();
-        currentOverlayLabel = new javax.swing.JLabel();
-        filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(60, 0), new java.awt.Dimension(60, 0), new java.awt.Dimension(60, 32767));
         jPanel19 = new javax.swing.JPanel();
         jPanel17 = new javax.swing.JPanel();
         jLabel17 = new javax.swing.JLabel();
         jLabel6 = new javax.swing.JLabel();
         jLabel7 = new javax.swing.JLabel();
         jLabel8 = new javax.swing.JLabel();
-        jLabel9 = new javax.swing.JLabel();
         jPanel18 = new javax.swing.JPanel();
         jButton1 = new javax.swing.JButton();
         worshipCountdownTimer = new javax.swing.JTextField();
         startCountdownButton = new javax.swing.JButton();
         jLabel16 = new javax.swing.JLabel();
-        streamAndRecordLabel = new javax.swing.JLabel();
         jPanel23 = new javax.swing.JPanel();
         jPanel13 = new javax.swing.JPanel();
         jPanel14 = new javax.swing.JPanel();
@@ -125,17 +118,30 @@ public class ObsAutomation extends javax.swing.JFrame {
         moveLabel = new javax.swing.JLabel();
         jPanel24 = new javax.swing.JPanel();
         slideControlPanel = new javax.swing.JPanel();
+        jPanel1 = new javax.swing.JPanel();
         jPanel45 = new javax.swing.JPanel();
         jButton5 = new javax.swing.JButton();
         jButton4 = new javax.swing.JButton();
         slidesPanel = new javax.swing.JPanel();
         fullSlidesButton = new javax.swing.JButton();
+        jPanel33 = new javax.swing.JPanel();
+        jPanel8 = new javax.swing.JPanel();
+        jLabel9 = new javax.swing.JLabel();
+        streamAndRecordLabel = new javax.swing.JLabel();
+        jPanel9 = new javax.swing.JPanel();
+        jPanel4 = new javax.swing.JPanel();
+        overlaySwitchButton = new javax.swing.JButton();
+        overlaySwitchButton1 = new javax.swing.JButton();
+        jPanel5 = new javax.swing.JPanel();
+        currentOverlayLabel = new javax.swing.JLabel();
+        filler2 = new javax.swing.Box.Filler(new java.awt.Dimension(60, 0), new java.awt.Dimension(60, 0), new java.awt.Dimension(60, 32767));
         pickerPanel = new javax.swing.JPanel();
         jMenuBar1 = new javax.swing.JMenuBar();
         helperMenu = new javax.swing.JMenu();
         streamPrepHelperItem = new javax.swing.JMenuItem();
         startItem = new javax.swing.JMenuItem();
         stopItem = new javax.swing.JMenuItem();
+        jMenuItem6 = new javax.swing.JMenuItem();
         jMenu2 = new javax.swing.JMenu();
         welcomeMenuItem = new javax.swing.JMenuItem();
         jMenuItem3 = new javax.swing.JMenuItem();
@@ -216,13 +222,6 @@ public class ObsAutomation extends javax.swing.JFrame {
         errorDialogLabel.setText("Error Text");
         errorDialog.getContentPane().add(errorDialogLabel, java.awt.BorderLayout.CENTER);
 
-        pickerDialog.setUndecorated(true);
-        pickerDialog.addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusLost(java.awt.event.FocusEvent evt) {
-                pickerDialogFocusLost(evt);
-            }
-        });
-
         jPanel2.setLayout(new java.awt.BorderLayout());
 
         jPanel6.setLayout(new java.awt.BorderLayout());
@@ -231,40 +230,6 @@ public class ObsAutomation extends javax.swing.JFrame {
         jPanel7.setLayout(new java.awt.BorderLayout());
 
         jPanel3.setLayout(new javax.swing.BoxLayout(jPanel3, javax.swing.BoxLayout.PAGE_AXIS));
-
-        jPanel33.setBorder(javax.swing.BorderFactory.createTitledBorder("Switch Overlay:"));
-        jPanel33.setLayout(new java.awt.BorderLayout());
-
-        jPanel4.setLayout(new java.awt.GridLayout(0, 1));
-
-        overlaySwitchButton.setText("Slide Combo");
-        overlaySwitchButton.setToolTipText("Slide Combo (Alt+C)");
-        overlaySwitchButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                overlaySwitchButtonActionPerformed(evt);
-            }
-        });
-        jPanel4.add(overlaySwitchButton);
-
-        overlaySwitchButton1.setText("Full Screen");
-        overlaySwitchButton1.setToolTipText("Full Screen (Alt+F)");
-        overlaySwitchButton1.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                overlaySwitchButton1ActionPerformed(evt);
-            }
-        });
-        jPanel4.add(overlaySwitchButton1);
-
-        jPanel33.add(jPanel4, java.awt.BorderLayout.CENTER);
-
-        jPanel5.setBorder(javax.swing.BorderFactory.createTitledBorder("Current:"));
-        jPanel5.setLayout(new java.awt.BorderLayout());
-        jPanel5.add(currentOverlayLabel, java.awt.BorderLayout.CENTER);
-        jPanel5.add(filler2, java.awt.BorderLayout.PAGE_START);
-
-        jPanel33.add(jPanel5, java.awt.BorderLayout.EAST);
-
-        jPanel11.add(jPanel33);
 
         jPanel10.add(jPanel11);
 
@@ -289,11 +254,6 @@ public class ObsAutomation extends javax.swing.JFrame {
 
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
         jPanel17.add(jLabel8);
-
-        jLabel9.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
-        jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jLabel9.setText("Stream and Record:");
-        jPanel17.add(jLabel9);
 
         jPanel19.add(jPanel17, java.awt.BorderLayout.WEST);
 
@@ -324,10 +284,6 @@ public class ObsAutomation extends javax.swing.JFrame {
 
         jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
         jPanel18.add(jLabel16);
-
-        streamAndRecordLabel.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
-        streamAndRecordLabel.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
-        jPanel18.add(streamAndRecordLabel);
 
         jPanel19.add(jPanel18, java.awt.BorderLayout.EAST);
 
@@ -404,11 +360,14 @@ public class ObsAutomation extends javax.swing.JFrame {
 
         jPanel2.add(jPanel7, java.awt.BorderLayout.CENTER);
 
-        pickerDialog.getContentPane().add(jPanel2, java.awt.BorderLayout.CENTER);
+        controlDialog.getContentPane().add(jPanel2, java.awt.BorderLayout.CENTER);
 
-        slideControlPanel.setBorder(javax.swing.BorderFactory.createTitledBorder("Slides:"));
+        slideControlPanel.setLayout(new java.awt.BorderLayout());
 
-        jPanel45.setLayout(new java.awt.GridLayout(0, 1, 0, 7));
+        jPanel1.setLayout(new java.awt.BorderLayout());
+
+        jPanel45.setBorder(javax.swing.BorderFactory.createTitledBorder("Slides:"));
+        jPanel45.setLayout(new java.awt.GridLayout(1, 0, 3, 0));
 
         jButton5.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
         jButton5.setText("Blank");
@@ -430,7 +389,7 @@ public class ObsAutomation extends javax.swing.JFrame {
         });
         jPanel45.add(jButton4);
 
-        slideControlPanel.add(jPanel45);
+        jPanel1.add(jPanel45, java.awt.BorderLayout.NORTH);
 
         slidesPanel.setBackground(new java.awt.Color(51, 153, 0));
         slidesPanel.setOpaque(false);
@@ -444,23 +403,60 @@ public class ObsAutomation extends javax.swing.JFrame {
         });
         slidesPanel.add(fullSlidesButton);
 
-        slideControlPanel.add(slidesPanel);
+        jPanel1.add(slidesPanel, java.awt.BorderLayout.CENTER);
+
+        slideControlPanel.add(jPanel1, java.awt.BorderLayout.CENTER);
+
+        jPanel33.setLayout(new java.awt.BorderLayout());
+
+        jLabel9.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        jLabel9.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel9.setText("Status:");
+        jPanel8.add(jLabel9);
+
+        streamAndRecordLabel.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        streamAndRecordLabel.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jPanel8.add(streamAndRecordLabel);
+
+        jPanel33.add(jPanel8, java.awt.BorderLayout.PAGE_START);
+
+        jPanel9.setBorder(javax.swing.BorderFactory.createTitledBorder("Overlay:"));
+        jPanel9.setLayout(new java.awt.BorderLayout());
+
+        jPanel4.setLayout(new java.awt.GridLayout(0, 1));
+
+        overlaySwitchButton.setText("Slide Combo");
+        overlaySwitchButton.setToolTipText("Slide Combo (Alt+C)");
+        overlaySwitchButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                overlaySwitchButtonActionPerformed(evt);
+            }
+        });
+        jPanel4.add(overlaySwitchButton);
+
+        overlaySwitchButton1.setText("Full Screen");
+        overlaySwitchButton1.setToolTipText("Full Screen (Alt+F)");
+        overlaySwitchButton1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                overlaySwitchButton1ActionPerformed(evt);
+            }
+        });
+        jPanel4.add(overlaySwitchButton1);
+
+        jPanel9.add(jPanel4, java.awt.BorderLayout.CENTER);
+
+        jPanel5.setBorder(javax.swing.BorderFactory.createTitledBorder("Current:"));
+        jPanel5.setLayout(new java.awt.BorderLayout());
+        jPanel5.add(currentOverlayLabel, java.awt.BorderLayout.CENTER);
+        jPanel5.add(filler2, java.awt.BorderLayout.PAGE_START);
+
+        jPanel9.add(jPanel5, java.awt.BorderLayout.EAST);
+
+        jPanel33.add(jPanel9, java.awt.BorderLayout.CENTER);
+
+        slideControlPanel.add(jPanel33, java.awt.BorderLayout.WEST);
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setUndecorated(true);
-        addFocusListener(new java.awt.event.FocusAdapter() {
-            public void focusLost(java.awt.event.FocusEvent evt) {
-                formFocusLost(evt);
-            }
-        });
-        addWindowFocusListener(new java.awt.event.WindowFocusListener() {
-            public void windowGainedFocus(java.awt.event.WindowEvent evt) {
-                formWindowGainedFocus(evt);
-            }
-            public void windowLostFocus(java.awt.event.WindowEvent evt) {
-                formWindowLostFocus(evt);
-            }
-        });
 
         pickerPanel.setLayout(new java.awt.GridLayout(2, 0, 0, 2));
         getContentPane().add(pickerPanel, java.awt.BorderLayout.NORTH);
@@ -495,6 +491,14 @@ public class ObsAutomation extends javax.swing.JFrame {
             }
         });
         helperMenu.add(stopItem);
+
+        jMenuItem6.setText("Open Controller Dialog");
+        jMenuItem6.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jMenuItem6ActionPerformed(evt);
+            }
+        });
+        helperMenu.add(jMenuItem6);
 
         jMenuBar1.add(helperMenu);
 
@@ -624,16 +628,6 @@ public class ObsAutomation extends javax.swing.JFrame {
         slidesPanel.setOpaque(false);
     }//GEN-LAST:event_fullSlidesButtonActionPerformed
 
-    private void formWindowLostFocus(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowLostFocus
-        System.out.println("LOST FOCUS " + evt.getOppositeWindow());
-        if (evt.getOppositeWindow() == null) {
-            if (!cancelAutoSlideSwitch) {
-                cancelAutoSlideSwitch();
-            }
-            pickerDialog.setAlwaysOnTop(false);
-        }
-    }//GEN-LAST:event_formWindowLostFocus
-
     private void helperDialogWindowClosing(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_helperDialogWindowClosing
         requestFocus();
     }//GEN-LAST:event_helperDialogWindowClosing
@@ -758,12 +752,14 @@ public class ObsAutomation extends javax.swing.JFrame {
         System.out.println("mark slide as blank");
 
         BufferedImage blank = robot.createScreenCapture(slideRectangle);
-        File outputFile = new File("D:\\Dustin\\OBS Images\\BlankSlides\\" + System.currentTimeMillis() + ".png");
-        try {
-            ImageIO.write(blank, "PNG", outputFile);
-        } catch (IOException ex) {
-            Logger.getLogger(ImageCreator.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        blankSlides.add(blank);
+//        String location = ObsAutomation.class.getResource("/org/coonrapidsfree/images/BlankSlides/" + System.currentTimeMillis() + ".PNG").getPath();
+//        File outputFile = new File(location);
+//        try {
+//            ImageIO.write(blank, "PNG", outputFile);
+//        } catch (IOException ex) {
+//            Logger.getLogger(ImageCreator.class.getName()).log(Level.SEVERE, null, ex);
+//        }
     }//GEN-LAST:event_jButton5ActionPerformed
 
     private void streamPrepHelperItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_streamPrepHelperItemActionPerformed
@@ -796,20 +792,6 @@ public class ObsAutomation extends javax.swing.JFrame {
         startItem.setEnabled(true);
     }//GEN-LAST:event_streamPrepHelperItemActionPerformed
 
-    private void formWindowGainedFocus(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowGainedFocus
-        if (evt.getOppositeWindow() == null) {
-            pickerDialog.setVisible(true);
-        }
-    }//GEN-LAST:event_formWindowGainedFocus
-
-    private void formFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_formFocusLost
-        System.out.println("FRAME LOST FOCUS");
-    }//GEN-LAST:event_formFocusLost
-
-    private void pickerDialogFocusLost(java.awt.event.FocusEvent evt) {//GEN-FIRST:event_pickerDialogFocusLost
-        System.out.println("PICKER LOST FOCUS");
-    }//GEN-LAST:event_pickerDialogFocusLost
-
     private void welcomeMenuItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_welcomeMenuItemActionPerformed
         changeToScene("INTRO - NO IN HOUSE AUDIO", null);
     }//GEN-LAST:event_welcomeMenuItemActionPerformed
@@ -831,6 +813,7 @@ public class ObsAutomation extends javax.swing.JFrame {
 
     private void startItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_startItemActionPerformed
         startItem.setEnabled(false);
+        changeToScene("INTRO - NO IN HOUSE AUDIO", null);
         controller.startRecording(new Callback<StartRecordingResponse>() {
             @Override
             public void run(StartRecordingResponse rt) {
@@ -860,6 +843,13 @@ public class ObsAutomation extends javax.swing.JFrame {
 
     private void stopItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_stopItemActionPerformed
         stopItem.setEnabled(false);
+
+        changeToScene("ENDING - NO IN HOUSE AUDIO", null);
+        try {
+            Thread.sleep(2000);
+        } catch (Exception e) {
+        }
+
         controller.stopRecording(new Callback<StopRecordingResponse>() {
             @Override
             public void run(StopRecordingResponse rt) {
@@ -898,6 +888,13 @@ public class ObsAutomation extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_jMenuItem2ActionPerformed
 
+    private void jMenuItem6ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem6ActionPerformed
+        controlDialog.setVisible(true);
+        controlDialog.setLocation(960, 0);
+//        controlDialog.setSize(900, 500);
+        controlDialog.pack();
+    }//GEN-LAST:event_jMenuItem6ActionPerformed
+
     BufferedImage prevProgramImage = null;
     BufferedImage prevSlot1Image = null;
     BufferedImage prevSlot3Image = null;
@@ -916,7 +913,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     public void setSlideState(SlideState slideState) {
 //        System.out.println("     setting slide state: " + slideState.toString());
         this.slideState = slideState;
-        currentOverlayLabel.setIcon(new ImageIcon(ImageUtilities.getImage(slideState.getOverlayImage(), 2.5, 0)));
+        currentOverlayLabel.setIcon(new ImageIcon(ImageUtilities.getImage(slideState.getOverlayImage(), 1, 0)));
         currentOverlayLabel.setToolTipText(slideState.toString());
 
         for (SlotPanel slotPanel : slotPanels) {
@@ -963,6 +960,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JDialog controlDialog;
     private javax.swing.JButton countDownCancelButton;
     private javax.swing.JLabel countDownLabel;
     private javax.swing.JLabel currentOverlayLabel;
@@ -1002,6 +1000,8 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JMenuItem jMenuItem3;
     private javax.swing.JMenuItem jMenuItem4;
     private javax.swing.JMenuItem jMenuItem5;
+    private javax.swing.JMenuItem jMenuItem6;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel10;
     private javax.swing.JPanel jPanel11;
     private javax.swing.JPanel jPanel13;
@@ -1025,11 +1025,12 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel5;
     private javax.swing.JPanel jPanel6;
     private javax.swing.JPanel jPanel7;
+    private javax.swing.JPanel jPanel8;
+    private javax.swing.JPanel jPanel9;
     private javax.swing.JLabel moveLabel;
     private javax.swing.JSlider moveSlider;
     private javax.swing.JButton overlaySwitchButton;
     private javax.swing.JButton overlaySwitchButton1;
-    private javax.swing.JDialog pickerDialog;
     private javax.swing.JPanel pickerPanel;
     private javax.swing.JPanel slideControlPanel;
     private javax.swing.JPanel slidesPanel;
@@ -1272,7 +1273,25 @@ public class ObsAutomation extends javax.swing.JFrame {
                                     if (!switched) {
                                         if (!cancelAutoSlideSwitch) {
                                             if (slideState.equals(SlideState.NO_SLIDE)) {
-                                                fullSlidesButton.doClick();
+                                                boolean blank = false;
+                                                int width = slideImage.getWidth();
+                                                int height = slideImage.getHeight();
+                                                for (BufferedImage blankSlide : blankSlides) {
+                                                    boolean same = true;
+                                                    for (int x = 0; x < width && same; x++) {
+                                                        for (int y = 0; y < height && same; y++) {
+                                                            same = blankSlide.getRGB(x, y) == slideImage.getRGB(x, y);
+                                                        }
+                                                    }
+                                                    if (same) {
+                                                        blank = true;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (!blank) {
+                                                    fullSlidesButton.doClick();
+                                                }
                                             }
                                         } else {
                                             slidesPanel.setOpaque(true);
@@ -1300,7 +1319,8 @@ public class ObsAutomation extends javax.swing.JFrame {
                 }
 
             }
-        });
+        }
+        );
         slideThread.start();
 
         fadeLabel.setText(fadeSlider.getValue() + " ms");
@@ -1309,12 +1329,12 @@ public class ObsAutomation extends javax.swing.JFrame {
         errorDialog.setLocation(getLocation());
         helperDialog.setLocation(getLocation());
         setSlideState(SlideState.NO_SLIDE);
+
         jLabel15.setText(firstSceneLabel.replaceAll(Pattern.quote("<%SCENE%>"), firstScene));
-        pickerDialog.setVisible(true);
-        pickerDialog.setLocation(960, 0);
-        pickerDialog.pack();
-        setLocation(0, 515);
-        setSize(new Dimension(1870, 480));
+        setLocation(
+                0, 515);
+        setSize(
+                new Dimension(1870, 560));
     }
 
     boolean inTransition = false;
@@ -1326,33 +1346,12 @@ public class ObsAutomation extends javax.swing.JFrame {
         int duration = 1000;
         if (transitionType == null) {
             transitionType = "Fade";
-            if (scene.equals("SLIDES") || currentScene.contains("NO IN HOUSE AUDIO")) {
-                transitionType = "Fade";
-            } else if (currentScene.contains("Slide") || currentScene.contains("SLIDES")) {
-                if (scene.contains("Slide") || currentScene.contains("SLIDES")) {
-                    if (currentScene.contains("SLIDES")) {
-                        transitionType = "Fade";
-                    } else {
-                        transitionType = "Move";
-                    }
-                } else {
-                    transitionType = "Fade";
+            try {
+                if (currentScene.substring(0, currentScene.indexOf(" ")).equals(scene.substring(0, scene.indexOf(" ")))) {
+                    transitionType = "Move";
                 }
-            } else {
-                if (scene.contains("Slide") || currentScene.contains("SLIDES")) {
-                    transitionType = "Fade";
-                } else {
-                    try {
-                        if (currentScene.substring(0, currentScene.indexOf(" ")).equals(scene.substring(0, scene.indexOf(" ")))) {
-                            transitionType = "Move";
-                        } else {
-                            transitionType = "Fade";
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        transitionType = "Fade";
-                    }
-                }
+            } catch (Exception e) {
+                System.out.println("Exception in changeToScene" + e.getMessage());
             }
         }
 
