@@ -22,6 +22,8 @@ import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -45,6 +47,7 @@ import net.twasi.obsremotejava.requests.SetCurrentScene.SetCurrentSceneResponse;
 import net.twasi.obsremotejava.requests.SetMute.SetMuteResponse;
 import net.twasi.obsremotejava.requests.SetSceneItemProperties.SetSceneItemPropertiesResponse;
 import net.twasi.obsremotejava.requests.SetTransitionDuration.SetTransitionDurationResponse;
+import org.coonrapidsfree.obs.ImageUtilities;
 
 public class ObsAutomationUtility extends javax.swing.JFrame {
 
@@ -1127,10 +1130,12 @@ public class ObsAutomationUtility extends javax.swing.JFrame {
         try {
 //Build out scenes in CREFScenesBase based on the pattern SceneGroupName x maxX, maxY with one of the combo scenes present
 //Copy the json output of this file to CREFScenesBuilt.json and import those scenes back into OBS
-            File f = new File("src/obsautomation/CREFScenesBuilt.json");
+
+            InputStream in = ObsAutomationUtility.class.getResourceAsStream("/obsautomation/CREFScenesBuilt.json");
+//            File f = new File(ObsAutomationUtility.class.getResource("/obsautomation/CREFScenesBuilt.json").toURI());
 //            System.out.println(f.getAbsolutePath());
-            FileReader fr = new FileReader(f);
-            BufferedReader br = new BufferedReader(fr);
+//            FileReader fr = new FileReader(f);
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
             StringBuilder sb = new StringBuilder();
             String eachLine = br.readLine();
