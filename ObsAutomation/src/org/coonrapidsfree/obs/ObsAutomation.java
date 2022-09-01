@@ -48,6 +48,7 @@ public class ObsAutomation extends javax.swing.JFrame {
 
     private boolean switchToSlides;
     private List<BufferedImage> blankSlides = new ArrayList<BufferedImage>();
+    private int slideMoveDuration = 3000;
 
     /**
      * Creates new form ObsAutomationTwo
@@ -99,10 +100,12 @@ public class ObsAutomation extends javax.swing.JFrame {
         jLabel6 = new javax.swing.JLabel();
         jLabel7 = new javax.swing.JLabel();
         jLabel8 = new javax.swing.JLabel();
+        jLabel18 = new javax.swing.JLabel();
         jPanel18 = new javax.swing.JPanel();
         jButton1 = new javax.swing.JButton();
         worshipCountdownTimer = new javax.swing.JTextField();
         startCountdownButton = new javax.swing.JButton();
+        allowableDiffField = new javax.swing.JTextField();
         jLabel16 = new javax.swing.JLabel();
         jPanel23 = new javax.swing.JPanel();
         jPanel13 = new javax.swing.JPanel();
@@ -167,19 +170,18 @@ public class ObsAutomation extends javax.swing.JFrame {
         helperDialog.getContentPane().add(jLabel11);
 
         jLabel23.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
-        jLabel23.setText("Click Edit.  Update the title and description to the sermon title.  Minimize Chrome.");
+        jLabel23.setText("Minimize Chrome.");
         helperDialog.getContentPane().add(jLabel23);
 
         jLabel12.setFont(new java.awt.Font("Tahoma", 1, 14)); // NOI18N
         helperDialog.getContentPane().add(jLabel12);
 
         jLabel22.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
-        jLabel22.setForeground(new java.awt.Color(153, 0, 0));
-        jLabel22.setText("Press record on the camera.");
+        jLabel22.setText("In OBS, Select the View menu, Select Multiview (Windowed), and drag the resulting popup window to the upper left hand corner of the screen.");
         helperDialog.getContentPane().add(jLabel22);
 
         jLabel13.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
-        jLabel13.setText("In OBS, Select the View menu, Select Multiview (Windowed), and drag the resulting popup window to the upper left hand corner of the screen.");
+        jLabel13.setText("It should snap to the upper right quarter of the screen.");
         helperDialog.getContentPane().add(jLabel13);
 
         jLabel14.setFont(new java.awt.Font("Tahoma", 1, 24)); // NOI18N
@@ -252,8 +254,13 @@ public class ObsAutomation extends javax.swing.JFrame {
         jLabel7.setText("Start Countdown Worship Set:");
         jPanel17.add(jLabel7);
 
+        jLabel8.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
         jLabel8.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jLabel8.setText("Blank Slide Allowable Difference:");
         jPanel17.add(jLabel8);
+
+        jLabel18.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
+        jPanel17.add(jLabel18);
 
         jPanel19.add(jPanel17, java.awt.BorderLayout.WEST);
 
@@ -281,6 +288,11 @@ public class ObsAutomation extends javax.swing.JFrame {
             }
         });
         jPanel18.add(startCountdownButton);
+
+        allowableDiffField.setFont(new java.awt.Font("Tahoma", 0, 18)); // NOI18N
+        allowableDiffField.setHorizontalAlignment(javax.swing.JTextField.TRAILING);
+        allowableDiffField.setText("100");
+        jPanel18.add(allowableDiffField);
 
         jLabel16.setHorizontalAlignment(javax.swing.SwingConstants.TRAILING);
         jPanel18.add(jLabel16);
@@ -960,6 +972,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JTextField allowableDiffField;
     private javax.swing.JDialog controlDialog;
     private javax.swing.JButton countDownCancelButton;
     private javax.swing.JLabel countDownLabel;
@@ -983,6 +996,7 @@ public class ObsAutomation extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel15;
     private javax.swing.JLabel jLabel16;
     private javax.swing.JLabel jLabel17;
+    private javax.swing.JLabel jLabel18;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel21;
     private javax.swing.JLabel jLabel22;
@@ -1273,24 +1287,21 @@ public class ObsAutomation extends javax.swing.JFrame {
                                     if (!switched) {
                                         if (!cancelAutoSlideSwitch) {
                                             if (slideState.equals(SlideState.NO_SLIDE)) {
-                                                boolean blank = false;
-                                                int width = slideImage.getWidth();
-                                                int height = slideImage.getHeight();
-                                                for (BufferedImage blankSlide : blankSlides) {
-                                                    boolean same = true;
-                                                    for (int x = 0; x < width && same; x++) {
-                                                        for (int y = 0; y < height && same; y++) {
-                                                            same = blankSlide.getRGB(x, y) == slideImage.getRGB(x, y);
-                                                        }
-                                                    }
-                                                    if (same) {
-                                                        blank = true;
-                                                        break;
-                                                    }
-                                                }
+                                                boolean blank = checkForBlankSlide(slideImage);
 
                                                 if (!blank) {
-                                                    fullSlidesButton.doClick();
+                                                    //check it again after a second to deal with fade effects
+                                                    Thread.sleep(1000);
+                                                    slideImage = robot.createScreenCapture(slideRectangle);
+                                                    blank = checkForBlankSlide(slideImage);
+
+                                                    if (!blank) {
+                                                        try {
+                                                            fullSlidesButton.doClick();
+                                                        } catch (Exception e) {
+                                                            e.printStackTrace();
+                                                        }
+                                                    }
                                                 }
                                             }
                                         } else {
@@ -1337,26 +1348,97 @@ public class ObsAutomation extends javax.swing.JFrame {
                 new Dimension(1870, 560));
     }
 
+    private boolean checkForBlankSlide(BufferedImage slideImage) {
+        int allowableDifference = 100;
+        int b = 0;
+        int g = 0;
+        int r = 0;
+
+        int sb = 0;
+        int sg = 0;
+        int sr = 0;
+
+        try {
+            allowableDifference = Integer.valueOf(allowableDiffField.getText());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        boolean blank = false;
+        int width = slideImage.getWidth();
+        int height = slideImage.getHeight();
+        for (BufferedImage blankSlide : blankSlides) {
+            boolean same = true;
+            int x = 0;
+            int y = 0;
+            for (x = 0; x < width && same; x++) {
+                for (y = 0; y < height && same; y++) {
+                    int argb = blankSlide.getRGB(x, y);
+                    b = (argb) & 0xFF;
+                    g = (argb >> 8) & 0xFF;
+                    r = (argb >> 16) & 0xFF;
+
+                    int sargb = slideImage.getRGB(x, y);
+                    sb = (sargb) & 0xFF;
+                    sg = (sargb >> 8) & 0xFF;
+                    sr = (sargb >> 16) & 0xFF;
+
+                    boolean bsame = Math.abs(b - sb) < allowableDifference;
+                    boolean gsame = Math.abs(g - sg) < allowableDifference;
+                    boolean rsame = Math.abs(r - sr) < allowableDifference;
+                    same = bsame && gsame && rsame;
+                }
+            }
+
+            System.out.println("Match on Blank Slide: " + same + "  " + blankSlide.getRGB(x, y) + " == " + slideImage.getRGB(x, y) + "  Diff: " + Math.abs(blankSlide.getRGB(x, y) - slideImage.getRGB(x, y))
+                    + " " + b + " " + sb + "   " + g + " " + sg + "    " + r + " " + sr);
+            if (same) {
+                blank = true;
+                break;
+            }
+        }
+        return blank;
+    }
     boolean inTransition = false;
 
     private void changeToScene(String scene, String transitionType) {
         if (currentScene.equals(scene)) {
             return;
         }
+
+        System.out.println("      CurrentScene: " + currentScene + "   scene: " + scene + "     tt: " + transitionType);
         int duration = 1000;
+        boolean transitionBetweenSlides = false;
+        try {
+            transitionBetweenSlides
+                    = (currentScene.startsWith("Slides") && scene.startsWith("SLIDES"))
+                    || (currentScene.startsWith("SLIDES") && scene.startsWith("Slides"));
+        } catch (Exception e) {
+            System.out.println("Exception in changeToScene setting transitionBetweenSlides: " + e.getMessage());
+        }
         if (transitionType == null) {
-            transitionType = "Fade";
+
+            if (transitionBetweenSlides) {
+                transitionType = "Move";
+            } else {
+                transitionType = "Fade";
+            }
             try {
                 if (currentScene.substring(0, currentScene.indexOf(" ")).equals(scene.substring(0, scene.indexOf(" ")))) {
                     transitionType = "Move";
                 }
             } catch (Exception e) {
-                System.out.println("Exception in changeToScene" + e.getMessage());
+                System.out.println("Exception in changeToScene: " + e.getMessage());
             }
         }
 
         if (transitionType.equals("Move")) {
-            duration = moveSlider.getValue();
+            if (transitionBetweenSlides) {
+                duration = slideMoveDuration;
+            } else {
+                duration = moveSlider.getValue();
+            }
+
         } else if (transitionType.equals("Fade")) {
             duration = fadeSlider.getValue();
         }
@@ -1377,6 +1459,8 @@ public class ObsAutomation extends javax.swing.JFrame {
                 controller.changeSceneWithTransition(scene, transitionType, callback);
             }
         }
+
+        System.out.println("                                           : " + transitionType);
     }
 
     private synchronized boolean setInTransition(boolean b) {

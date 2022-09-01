@@ -33,7 +33,7 @@
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Tahoma" size="24" style="1"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="Click Edit.  Update the title and description to the sermon title.  Minimize Chrome."/>
+            <Property name="text" type="java.lang.String" value="Minimize Chrome."/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel12">
@@ -48,10 +48,7 @@
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Tahoma" size="24" style="1"/>
             </Property>
-            <Property name="foreground" type="java.awt.Color" editor="org.netbeans.beaninfo.editors.ColorEditor">
-              <Color blue="0" green="0" red="99" type="rgb"/>
-            </Property>
-            <Property name="text" type="java.lang.String" value="Press record on the camera."/>
+            <Property name="text" type="java.lang.String" value="In OBS, Select the View menu, Select Multiview (Windowed), and drag the resulting popup window to the upper left hand corner of the screen."/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel13">
@@ -59,7 +56,7 @@
             <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
               <Font name="Tahoma" size="24" style="1"/>
             </Property>
-            <Property name="text" type="java.lang.String" value="In OBS, Select the View menu, Select Multiview (Windowed), and drag the resulting popup window to the upper left hand corner of the screen."/>
+            <Property name="text" type="java.lang.String" value="It should snap to the upper right quarter of the screen."/>
           </Properties>
         </Component>
         <Component class="javax.swing.JLabel" name="jLabel14">
@@ -276,6 +273,15 @@
                                 </Component>
                                 <Component class="javax.swing.JLabel" name="jLabel8">
                                   <Properties>
+                                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                      <Font name="Tahoma" size="18" style="0"/>
+                                    </Property>
+                                    <Property name="horizontalAlignment" type="int" value="11"/>
+                                    <Property name="text" type="java.lang.String" value="Blank Slide Allowable Difference:"/>
+                                  </Properties>
+                                </Component>
+                                <Component class="javax.swing.JLabel" name="jLabel18">
+                                  <Properties>
                                     <Property name="horizontalAlignment" type="int" value="11"/>
                                   </Properties>
                                 </Component>
@@ -324,6 +330,15 @@
                                   <Events>
                                     <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="startCountdownButtonActionPerformed"/>
                                   </Events>
+                                </Component>
+                                <Component class="javax.swing.JTextField" name="allowableDiffField">
+                                  <Properties>
+                                    <Property name="font" type="java.awt.Font" editor="org.netbeans.beaninfo.editors.FontEditor">
+                                      <Font name="Tahoma" size="18" style="0"/>
+                                    </Property>
+                                    <Property name="horizontalAlignment" type="int" value="11"/>
+                                    <Property name="text" type="java.lang.String" value="100"/>
+                                  </Properties>
                                 </Component>
                                 <Component class="javax.swing.JLabel" name="jLabel16">
                                   <Properties>

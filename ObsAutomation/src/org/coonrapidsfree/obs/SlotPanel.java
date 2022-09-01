@@ -31,6 +31,7 @@ import javax.swing.JPanel;
 public abstract class SlotPanel extends javax.swing.JPanel {
 
     private final String baseSceneName;
+    private static SlotPanel currentActiveSlotPanel = null;
 
     /**
      * Creates new form FirstSlotPanel
@@ -702,7 +703,7 @@ public abstract class SlotPanel extends javax.swing.JPanel {
                 super.paint(grphcs);
                 Graphics2D g2d = (Graphics2D) grphcs;
                 final String currentScene = ObsAutomation.getCurrentScene();
-                if (getSceneToRectMap().containsKey(currentScene)) {
+                if (currentActiveSlotPanel == SlotPanel.this && getSceneToRectMap().containsKey(currentScene)) {
                     Rectangle r = getSceneToRectMap().get(currentScene);
                     try {
                         g2d.setColor(Color.RED);
@@ -748,6 +749,7 @@ public abstract class SlotPanel extends javax.swing.JPanel {
             @Override
             public void mousePressed(MouseEvent me) {
                 if (potentialScene != null && !potentialScene.isEmpty()) {
+                    currentActiveSlotPanel = SlotPanel.this;
                     changeToScene(baseSceneName, potentialScene);
                 }
             }
